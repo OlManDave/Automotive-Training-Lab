@@ -1,0 +1,1037 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ABS Simulator | Interactive 3D Brake System</title>
+<style>
+:root{font-family:Inter,system-ui,Arial,sans-serif;color:#e7eef7;background:#080f1a}
+*{box-sizing:border-box}body{margin:0}header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 20px;background:#111d2c;border-bottom:1px solid #304053;flex-wrap:wrap}
+h1{font-size:18px;margin:0;font-weight:750}small{color:#9fb2c7}.tag{font-size:11px;border:1px solid #4a6177;border-radius:30px;padding:5px 9px;color:#c6d5e5}
+main{max-width:1700px;margin:auto;padding:12px}.toolbar{display:flex;flex-wrap:wrap;gap:8px;padding:12px;background:#142237;border:1px solid #34465b;border-radius:12px;margin-bottom:10px;align-items:center}
+button{cursor:pointer;border:1px solid #425b76;border-radius:9px;padding:10px 14px;background:#23354d;color:#eaf3ff;font-weight:650}button:hover{background:#314962}button.active{background:#196c8a;border-color:#4ec9ec}button:focus-visible{outline:3px solid #8ce0ff}
+button.primary{background:#0d728d}.spacer{flex:1}label{font-size:13px;display:flex;align-items:center;gap:7px;white-space:nowrap}
+#stage{height:min(74vh,810px);min-height:420px;position:relative;overflow:hidden;border-radius:12px;border:1px solid #3c4e63;background:radial-gradient(circle at 50% 32%,#243448,#0a1422 75%)}
+canvas{display:block;width:100%;height:100%}.hud{position:absolute;top:12px;left:12px;padding:12px 15px;border-radius:10px;background:#0b1522d9;border:1px solid #41546a;pointer-events:none;font-size:13px;line-height:1.7}
+.hud b{color:#7fe2ff}.legend{position:absolute;right:12px;bottom:12px;padding:9px 12px;background:#0b1522d9;border:1px solid #41546a;border-radius:8px;font-size:12px;color:#bdd0e1;pointer-events:none}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin:0 5px 0 12px}.dot:first-child{margin-left:0}
+.foot{display:flex;gap:12px;flex-wrap:wrap;justify-content:space-between;color:#aebfd0;font-size:12px;padding:12px 3px;line-height:1.5}
+input[type=range]{width:130px;accent-color:#48c8e7}select{padding:9px 10px;border-radius:8px;border:1px solid #52718b;background:#20344b;color:#eaf3ff;font-weight:600}
+@media(max-width:700px){#stage{height:64vh;min-height:440px}.hud{font-size:11px;padding:7px 9px}.legend{font-size:10px}button{padding:9px 10px}}
+/* Live diagnostic chart is outside the 3D scene; brake geometry is untouched. */
+.speed-chart{background:#111e2f;border:1px solid #34465b;border-radius:12px;margin-top:10px;padding:12px 14px 9px}
+.speed-chart-header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:7px}
+.speed-chart h2{font-size:15px;margin:0}.speed-chart p{font-size:12px;color:#aebfd0;margin:3px 0}
+.chart-legend{display:flex;flex-wrap:wrap;gap:7px 15px;font-size:12px;align-items:center;margin:8px 0 3px}
+.chart-key{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.chart-key:before{content:'';width:21px;border-top:3px solid var(--trace);display:block}
+.chart-canvas{width:100%;height:235px;display:block;border-radius:7px;background:#091522}
+@media(max-width:700px){.chart-canvas{height:195px}}
+</style></head><body>
+<header><div><h1>ABS Simulator</h1><small>Authentic booster shell + removable inspection cover</small></div><span class="tag">3D demonstration · not factory CAD</span></header>
+<main><div class="toolbar">
+<button class="primary" id="apply">Apply brakes</button><button id="release">Release brakes</button>
+<button id="absOn">ABS ON</button><button id="absOff" class="active">ABS OFF</button>
+<button id="play">▶ Run</button><button id="restartSpeed">Reset speed</button><button id="reset">Reset view</button>
+<label><input id="xray" type="checkbox"> General cutaway</label><button id="boosterView" class="active">Booster: open</button>
+<label>Road surface <select id="surface" aria-label="Road surface"><option value="dry">Dry asphalt</option><option value="wet">Wet asphalt</option><option value="gravel">Loose gravel</option><option value="snow">Packed snow</option><option value="ice">Ice</option></select></label><span class="spacer"></span><label>Starting speed <input id="speed" type="range" min="0" max="160" step="5" value="60"><output id="speedOut">60 km/h</output></label><label>Brake force <input id="force" type="range" min="10" max="100" value="70"><output id="forceOut">70%</output></label>
+</div>
+<div id="stage"><div class="hud" id="hud"><b>Ready</b><div>Pedal: released</div><div>ABS: OFF</div><div>Pressure: 0% (illustrative)</div></div>
+</div>
+<section class="speed-chart" aria-label="Live wheel speed and vehicle speed comparison">
+ <div class="speed-chart-header"><div><h2>Live speed graph · vehicle vs. four wheels</h2><p>Watch wheel lockup with ABS OFF or wheel-speed modulation with ABS ON · moving 20-second window</p></div><button id="clearGraph" type="button">Clear graph</button></div>
+ <canvas id="speedChart" class="chart-canvas" role="img" aria-label="Live graph of vehicle, left front, right front, left rear and right rear speed in kilometres per hour over time"></canvas>
+ <div class="chart-legend"><span class="chart-key" style="--trace:#fff4a8">Vehicle</span><span class="chart-key" style="--trace:#52d6f7">Left front</span><span class="chart-key" style="--trace:#ff878e">Right front</span><span class="chart-key" style="--trace:#8be4a0">Left rear</span><span class="chart-key" style="--trace:#c59cff">Right rear</span></div>
+ <p>A locked wheel reads 0 km/h while the vehicle continues to slide. Friction varies by surface; ABS does not always produce a shorter stop on loose gravel or snow. Illustrative dry/level-road model, not measured test data.</p>
+</section>
+<div class="foot"><span>Drag to rotate · Scroll to zoom · Right-drag to pan · Toggle Booster: open / closed to inspect the diaphragm and return spring.</span><span>Custom educational 3D model; not dimensionally verified. Wheel speed, braking and ABS response are simplified educational approximations.</span></div></main>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+const stage=document.getElementById('stage');
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.55;stage.prepend(renderer.domElement);
+const scene=new THREE.Scene();scene.fog=new THREE.Fog(0x0b1623,20,42);
+const camera=new THREE.PerspectiveCamera(44,1,.08,100);camera.position.set(15,11.2,20);
+const controls=new OrbitControls(camera,renderer.domElement);controls.target.set(0,0,0);controls.enableDamping=true;
+controls.minDistance=5;controls.maxDistance=30;controls.maxPolarAngle=Math.PI*.85;
+scene.add(new THREE.HemisphereLight(0xd6e8ff,0x18212c,2.2));
+function light(pos,power,color){const l=new THREE.DirectionalLight(color,power);l.position.set(...pos);l.castShadow=true;l.shadow.mapSize.set(2048,2048);l.shadow.camera.left=-14;l.shadow.camera.right=14;l.shadow.camera.top=14;l.shadow.camera.bottom=-14;l.shadow.bias=-.0002;scene.add(l)}
+light([4,12,8],3.2,0xffffff);light([-7,5,-8],1.4,0x80b9ff);
+const M=(c,metal=.0,rough=.55,extra={})=>new THREE.MeshStandardMaterial({color:c,metalness:metal,roughness:rough,...extra});
+const mat={
+cast:M(0x717b80,.74,.53),steel:M(0xa6afb4,.9,.25),dark:M(0x303a42,.78,.43),
+rubber:M(0x15191d,.04,.9),plastic:M(0x222d36,.09,.59),silver:M(0xd4dce1,.88,.2),
+brass:M(0xc18c48,.82,.28),rotor:M(0x8b969e,.91,.32),pad:M(0x514d43,.12,.83),
+fluid:M(0xe55b42,.2,.22,{transparent:true,opacity:.72,depthWrite:false}),
+blue:M(0x49c1dc,.12,.24,{transparent:true,opacity:.68,depthWrite:false}),
+amber:M(0xc7a566,.25,.5),drum:M(0x62696c,.84,.48),paint:M(0x344657,.6,.36)};
+const cut=[];const activePressure=[];const moving=[];const rotors=[];
+function mesh(g,m,parent=scene){const o=new THREE.Mesh(g,m);o.castShadow=true;o.receiveShadow=true;parent.add(o);return o}
+function cyl(r1,r2,len,m,pos,axis='y',parent=scene,segments=64){const o=mesh(new THREE.CylinderGeometry(r1,r2,len,segments),m,parent);o.position.set(...pos);if(axis==='x')o.rotation.z=Math.PI/2;if(axis==='z')o.rotation.x=Math.PI/2;return o}
+function torus(R,r,m,pos,axis='z',parent=scene){const o=mesh(new THREE.TorusGeometry(R,r,12,80),m,parent);o.position.set(...pos);if(axis==='x')o.rotation.y=Math.PI/2;if(axis==='y')o.rotation.x=Math.PI/2;return o}
+function box(size,m,pos,parent=scene,bevel=0){let g=new THREE.BoxGeometry(...size);const o=mesh(g,m,parent);o.position.set(...pos);return o}
+function line(points,r,m,parent=scene){const curve=new THREE.CatmullRomCurve3(points.map(v=>new THREE.Vector3(...v)),false,'centripetal');return mesh(new THREE.TubeGeometry(curve,Math.max(80,points.length*22),r,8,false),m,parent)}
+function ball(r,m,pos,parent=scene){const o=mesh(new THREE.SphereGeometry(r,20,12),m,parent);o.position.set(...pos);return o}
+function hex(r,len,m,pos,axis='y',parent=scene){return cyl(r,r,len,m,pos,axis,parent,6)}
+function ringbolts(n,R,rr,z,parent=scene){for(let i=0;i<n;i++){let a=i*2*Math.PI/n;hex(rr,.1,mat.dark,[R*Math.cos(a),R*Math.sin(a),z],'z',parent)}}
+function extrudedShape(points,depth,m,parent=scene,bevel=.06){
+const s=new THREE.Shape();s.moveTo(points[0][0],points[0][1]);
+for(let i=1;i<points.length;i++){const prev=points[i-1],cur=points[i];s.quadraticCurveTo(prev[0],prev[1],(prev[0]+cur[0])/2,(prev[1]+cur[1])/2)}
+s.lineTo(points[0][0],points[0][1]);
+const g=new THREE.ExtrudeGeometry(s,{depth,bevelEnabled:true,bevelSegments:3,steps:1,bevelSize:bevel,bevelThickness:bevel,curveSegments:8});
+g.computeVertexNormals();return mesh(g,m,parent)}
+// Ground / studio plinth
+const ground=mesh(new THREE.PlaneGeometry(200,200),M(0x111d2a,.1,.93));ground.rotation.x=-Math.PI/2;ground.position.y=-3.7;ground.receiveShadow=true;
+const grid=new THREE.GridHelper(30,30,0x304354,0x263443);grid.position.y=-3.69;scene.add(grid);
+// MASTER CYLINDER + BOOSTER: tandem hydraulic assembly with permanent sectional window.
+// Demonstration: custom tandem layout, not a dimensionally verified casting.
+// Longitudinal vehicle orientation: +Z points forward; pedal behind firewall, booster and master in engine bay.
+const master=new THREE.Group();master.position.set(-2.75,1.65,-2.05);master.rotation.y=-Math.PI/2;scene.add(master);
+const booster=new THREE.Group();booster.position.set(-1.06,0,0);master.add(booster);
+// Pressed-steel vacuum booster: two shells, rolled seam, studs and pushrod.
+// Pressed-steel can with a removable upper inspection shell. Unlike a permanently
+// missing half, students can toggle between a complete booster and a cut-open view.
+const boosterShellMat=M(0x30363b,.76,.4,{side:THREE.DoubleSide});
+const boosterLowerShell=mesh(new THREE.CylinderGeometry(1.04,1.04,.78,112,1,true,Math.PI,Math.PI),boosterShellMat,booster);
+boosterLowerShell.rotation.z=Math.PI/2;boosterLowerShell.position.x=-.08;
+const boosterUpperShell=mesh(new THREE.CylinderGeometry(1.04,1.04,.78,112,1,true,0,Math.PI),boosterShellMat,booster);
+boosterUpperShell.rotation.z=Math.PI/2;boosterUpperShell.position.x=-.08;
+boosterUpperShell.visible=false;
+// Rolled front/rear lips, circumferential crimp seam and pressed shell contours.
+for(const x of [-.42,-.09,.25])torus(1.038,x===-.09?.032:.023,mat.silver,[x,0,0],'x',booster);
+// Lower stamped reinforcement rings follow the curved can wall.
+for(const x of [-.30,.13]){
+ const rib=mesh(new THREE.CylinderGeometry(1.053,1.053,.035,112,1,true,Math.PI,Math.PI),mat.dark,booster);
+ rib.rotation.z=Math.PI/2;rib.position.x=x;
+}
+// A small rear pressed dish remains behind the moving diaphragm.
+cyl(.76,.87,.055,mat.dark,[-.475,0,0],'x',booster,112);
+// Mounting studs and rubber grommet at the firewall-facing side.
+for(const y of [-.59,.59])for(const z of [-.57,.57]){
+ cyl(.028,.028,.22,mat.steel,[-.53,y,z],'x',booster,12);
+ hex(.053,.048,mat.silver,[-.64,y,z],'x',booster);
+}
+// Show the cross section as an open top shell; no opaque geometry covers the internals.
+// The outer cover can be restored using the dedicated button without hiding any mechanisms.
+// Thin rear rim and a complete, intact master-cylinder-facing front face.
+torus(1.03,.038,mat.silver,[-.45,0,0],'x',booster);
+torus(1.03,.038,mat.silver,[.29,0,0],'x',booster);
+cyl(1.02,1.02,.052,mat.dark,[.32,0,0],'x',booster,112);
+// Exposed upper half reveals two diaphragms and the common return spring.
+cyl(.24,.24,.12,mat.cast,[.31,0,0],'x',booster);
+cyl(.115,.115,.46,mat.steel,[-.45,0,0],'x',booster);
+for(let y of [-.64,.64])for(let z of [-.60,.60]){
+ cyl(.037,.037,.19,mat.steel,[.32,y,z],'x',booster,12);
+ hex(.075,.065,mat.silver,[.43,y,z],'x',booster);
+}
+// PEDAL ASSEMBLY: offset suspended pedal with a long articulated booster input rod.
+// Positive pedal rotation moves the foot pad INWARD toward the booster (+X).
+const pedalRig=new THREE.Group();master.add(pedalRig);
+const pedalPivot=new THREE.Group();pedalPivot.position.set(-3.30,.70,0);pedalRig.add(pedalPivot);
+cyl(.105,.105,.46,mat.steel,[-3.30,.70,0],'z',pedalRig,36);
+// Suspended brake arm: its lower end leans about 40 degrees away from the booster.
+// The outer edge is the driver's side (-X); the booster is to the right (+X).
+const pedalArm=extrudedShape([[-.085,.07],[.105,.07],[.065,-.28],[-.21,-.68],[-.99,-1.58],[-1.19,-1.51],[-.43,-.56],[-.12,-.21]],.19,mat.dark,pedalPivot,.022);
+pedalArm.position.z=-.095;
+// Pressed steel foot-pad support and a broad, slightly rounded molded rubber pad.
+// Pad's working face points toward the driver's foot (-X), AWAY from the booster.
+// Footpad pivots at its TOP mounting edge, independently of the brake arm.
+// Tilt the driver-facing rubber surface upward about 35 degrees around Z.
+const padHinge=new THREE.Group();
+padHinge.position.set(-1.10,-1.37,0);
+pedalPivot.add(padHinge);
+padHinge.rotation.z=-THREE.MathUtils.degToRad(35);
+// All pad geometry uses hinge-local coordinates so the mounting point stays fixed.
+const padMount=box([.085,.35,.69],mat.cast,[0,-.18,0],padHinge);
+const footPad=box([.115,.39,.75],mat.rubber,[-.08,-.18,0],padHinge);
+// Raised non-slip ribs stay flush with the rotated driver-facing pad.
+for(const y of [-.32,-.24,-.16,-.08,0]){
+  box([.025,.029,.60],mat.dark,[-.148,y,0],padHinge);
+}
+// Clevis attaches high on the arm rather than at the foot pad.
+const pedalClevis=cyl(.078,.078,.26,mat.cast,[-.32,-.55,0],'z',pedalPivot,24);
+const pedalInputRod=cyl(.046,.046,1,mat.steel,[-2.35,0,0],'x',pedalRig,28);
+const pedalRodEye=cyl(.095,.095,.11,mat.cast,[-3.43,0,0],'z',pedalRig,28);
+const boosterInputCoupler=cyl(.09,.09,.18,mat.cast,[-1.55,0,0],'x',pedalRig,28);
+const pedalRodStart=new THREE.Vector3(),pedalRodEnd=new THREE.Vector3();
+const rodAxis=new THREE.Vector3(0,1,0); // CylinderGeometry is long on local Y, even when the mesh was initially rotated to X
+// Two-stage (dual diaphragm) vacuum booster educational cutaway.
+// Two flexible membranes and their steel support plates are visible through the open half.
+const boosterDiaphragm=new THREE.Group();booster.add(boosterDiaphragm);
+for(const x of [-.24,.085]){
+  cyl(.88,.88,.045,mat.rubber,[x,0,0],'x',boosterDiaphragm,112);
+  cyl(.70,.70,.025,mat.steel,[x+.035,0,0],'x',boosterDiaphragm,96);
+  torus(.87,.025,mat.rubber,[x,0,0],'x',boosterDiaphragm);
+}
+// Central connecting sleeve between the diaphragm plates and booster output shaft.
+cyl(.14,.14,.38,mat.cast,[-.07,0,0],'x',boosterDiaphragm,40);
+const boosterOutput=cyl(.063,.063,.45,mat.steel,[.24,0,0],'x',boosterDiaphragm,32);
+const boosterSpring=new THREE.Group();booster.add(boosterSpring);
+const boosterCoils=[];
+for(let k=0;k<=135;k++){
+ const t=k/135,a=t*12*Math.PI;
+ boosterCoils.push(new THREE.Vector3(-.39+t*.62,.42*Math.cos(a),.42*Math.sin(a)));
+}
+mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(boosterCoils),220,.029,10,false),mat.silver,boosterSpring);
+// Sectioned translucent vacuum/atmospheric volumes stay inside the two-diaphragm can.
+// Vacuum check valve and hose relocated to the MASTER-CYLINDER-FACING side of the booster.
+// The check valve enters the forward shell; a flexible hose sweeps away from the port.
+cyl(.088,.088,.15,mat.rubber,[.34,.72,-.62],'x',booster,24);
+cyl(.116,.116,.12,mat.plastic,[.43,.72,-.62],'x',booster,24);
+line([[.47,.72,-.62],[.58,.77,-.68],[.72,.89,-.77],[.82,1.04,-.82],[.87,1.20,-.85]],.048,mat.rubber,booster);
+// The pressure differential acts across the diaphragm; the vacuum chamber and
+// atmospheric chamber are shown by subtle translucent sectional volumes.
+const chamberVac=M(0x42a7ce,.05,.7,{transparent:true,opacity:.13,depthWrite:false,side:THREE.DoubleSide});
+const chamberAir=M(0xe0a65a,.05,.7,{transparent:true,opacity:.12,depthWrite:false,side:THREE.DoubleSide});
+// No opaque chamber cap: diaphragms remain visible through upper half.
+// Pressure chambers are represented by the gaps between the two diaphragms.
+// Booster input valve housing and reaction disc (simplified educational cutaway).
+cyl(.13,.13,.16,mat.cast,[-.33,0,0],'x',booster,32);
+cyl(.115,.115,.038,mat.rubber,[.055,0,0],'x',booster,32);
+// Realistic long stepped aluminum casting, flanged against the booster.
+cyl(.41,.41,.14,mat.cast,[-.55,0,0],'x',master,72);
+for(let y of [-.27,.27])for(let z of [-.25,.25])hex(.075,.085,mat.silver,[-.56,y,z],'x',master);
+const mcBody=cyl(.315,.335,1.95,mat.cast,[.40,0,0],'x',master,96);
+const nose=cyl(.285,.285,.17,mat.cast,[1.43,0,0],'x',master,64);
+hex(.24,.055,mat.silver,[1.55,0,0],'x',master);
+for(const x of [-.38,.15,.86,1.28])torus(.326,.013,mat.dark,[x,0,0],'x',master);
+// Cutaway is a permanent window: transparent upper/front quadrant lets students
+// see the primary and secondary pistons and compensation ports without hiding housing.
+const windowMat=M(0x9ab0b9,.3,.23,{transparent:true,opacity:.14,depthWrite:false,side:THREE.DoubleSide});
+const masterCutawayWindow=cyl(.322,.322,1.84,windowMat,[.40,0,.007],'x',master,96);
+// Make original opaque casting a lower semicircular channel, leaving upper half open.
+// CylinderGeometry thetaStart/thetaLength describes radial sweep around the x axis.
+mcBody.geometry.dispose();mcBody.geometry=new THREE.CylinderGeometry(.335,.315,1.95,96,1,true,Math.PI,Math.PI);
+// Two circumferential liner rails visually indicate the exposed bore.
+const boreMat=M(0x9caab1,.75,.25);
+for(let x of [-.45,1.25])torus(.255,.016,boreMat,[x,0,0],'x',master);
+// Two tandem pistons in series, not one long piston.
+const masterPistons=[];
+for(const x of [-.09,.74]){
+ const g=new THREE.Group();g.position.x=x;master.add(g);masterPistons.push(g);
+ cyl(.205,.205,.27,mat.silver,[0,0,0],'x',g,48);
+ torus(.209,.032,mat.rubber,[-.10,0,0],'x',g);
+ torus(.209,.028,mat.rubber,[.10,0,0],'x',g);
+ cyl(.11,.11,.21,mat.steel,[.21,0,0],'x',g,32);
+}
+// Return springs follow the pistons (exposed helical geometry).
+const masterSprings=[];
+for(const [x0,x1] of [[.13,.56],[.96,1.31]]){
+ const spring=new THREE.Group();master.add(spring);masterSprings.push({spring,x0,x1});
+ const pts=[];for(let k=0;k<=110;k++){
+  const t=k/110,ang=t*Math.PI*2*7;
+  pts.push(new THREE.Vector3(x0+(x1-x0)*t,.147*Math.cos(ang),.147*Math.sin(ang)));
+ }
+ const curve=new THREE.CatmullRomCurve3(pts);
+ mesh(new THREE.TubeGeometry(curve,180,.019,7,false),mat.steel,spring);
+}
+// Dual compensation and replenishment drillings beneath the reservoir.
+const masterPorts=[];
+for(const x of [-.03,.78]){
+ cyl(.105,.105,.22,mat.cast,[x,.37,0],'y',master,40);
+ cyl(.073,.073,.16,mat.rubber,[x,.51,0],'y',master,32);
+ const feed=cyl(.036,.036,.24,mat.blue,[x,.27,0],'y',master,24);
+ const indicator=ball(.055,mat.blue,[x,.15,0],master);
+ masterPorts.push({feed,indicator});
+}
+// Semi-translucent dual-compartment reservoir and cap.
+const reservoir=new THREE.Group();reservoir.position.set(.38,.96,0);master.add(reservoir);
+const tankMaterial=M(0xd7d4b9,.04,.48,{transparent:true,opacity:.69,depthWrite:false});
+const tank=box([1.24,.63,.64],tankMaterial,[0,.05,0],reservoir);cut.push(tank);
+box([.055,.53,.58],tankMaterial,[0,.05,0],reservoir);
+const fluidLevel=box([1.12,.17,.55],M(0xd4b15e,.02,.3,{transparent:true,opacity:.38}),[0,-.13,0],reservoir);
+cyl(.23,.23,.14,mat.rubber,[.19,.46,0],'y',reservoir,48);
+cyl(.245,.245,.08,mat.dark,[.19,.55,0],'y',reservoir,48);
+for(let i=0;i<24;i++){const a=i*Math.PI*2/24;box([.021,.065,.021],mat.dark,[.19+.245*Math.cos(a),.55,.245*Math.sin(a)],reservoir)}
+// Independent hydraulic outlets for the two tandem circuits.
+for(const x of [.10,1.03]){
+ const boss=cyl(.14,.14,.12,mat.cast,[x,-.14,-.30],'z',master,40);
+ hex(.095,.10,mat.brass,[x,-.14,-.39],'z',master);
+ cyl(.045,.045,.11,mat.steel,[x,-.14,-.47],'z',master,24);
+}
+// Visible fluid chamber segments and non-ABS compensation-port indicators.
+const chamberMaterials=[M(0xe85c45,.1,.3,{transparent:true,opacity:.12,depthWrite:false}),M(0xe85c45,.1,.3,{transparent:true,opacity:.12,depthWrite:false})];
+for(const [i,x] of [-.03,.80].entries()){
+ const c=cyl(.242,.242,.30,chamberMaterials[i],[x+.26,0,0],'x',master,48);
+}
+// ABS modulator: alloy hydraulic block, offset pump motor and removable ECU cover exposing coils
+const hcu=new THREE.Group();hcu.position.set(2.15,1.38,0);scene.add(hcu);
+// Hydraulic block meets the ECU housing without a visible seam/gap.
+// Its front overlaps the ECU tray, while the rear still seats the motor flange.
+const hbody=box([1.55,.95,.98],mat.cast,[0,-.26,-.13],hcu);cut.push(hbody);
+for(let i=0;i<6;i++){
+  const x=-.59+i*.235;
+  hex(.105,.15,mat.brass,[x,.25,-.44],'y',hcu);
+  cyl(.065,.065,.11,mat.steel,[x,.37,-.44],'y',hcu,24);
+}
+for(let i=0;i<4;i++)hex(.08,.09,mat.dark,[i%2? .66:-.66,i<2?.11:-.59,.2],'z',hcu);
+// Rear-mounted ABS return-pump motor, coaxial with the rear of the hydraulic block.
+// Short, broad canister: front mounting flange sits against the back (-Z) face.
+// The translucent outer shell is for educational inspection only.
+const motorShellMat=M(0x343e47,.65,.38,{transparent:true,opacity:.30,depthWrite:false,side:THREE.DoubleSide});
+const motorCenter=[0,-.26,-.91];
+const pump=cyl(.445,.445,.55,motorShellMat,motorCenter,'z',hcu,72);
+// Mounting flange against the rear face of the alloy hydraulic block.
+cyl(.46,.46,.065,mat.dark,[0,-.26,-.645],'z',hcu,72);
+torus(.435,.018,mat.steel,[0,-.26,-.682],'z',hcu);
+for(const x of [-.31,.31])for(const y of [-.57,.05]){
+  hex(.046,.065,mat.steel,[x,y,-.67],'z',hcu,12);
+}
+// Eight stationary stator segments around the rear-facing motor's axis.
+for(let i=0;i<8;i++){
+ const angle=i*Math.PI/4;
+ const segment=box([.105,.075,.41],i%2?mat.dark:mat.steel,[.33*Math.cos(angle),-.26+.33*Math.sin(angle),-.91],hcu);
+ segment.rotation.z=angle;
+}
+// Shorter, wider armature with laminated core, copper windings and commutator.
+const motorArmature=new THREE.Group();motorArmature.position.set(...motorCenter);hcu.add(motorArmature);
+cyl(.235,.235,.37,mat.dark,[0,0,0],'z',motorArmature,48);
+for(let i=0;i<6;i++)cyl(.242,.242,.025,mat.steel,[0,0,-.15+i*.06],'z',motorArmature,40);
+const copperMotor=M(0xb76c31,.84,.26);
+for(let i=0;i<8;i++){
+ const angle=i*Math.PI/4;
+ cyl(.026,.026,.36,copperMotor,[.265*Math.cos(angle),.265*Math.sin(angle),0],'z',motorArmature,12);
+}
+cyl(.075,.075,.79,mat.steel,[0,0,.11],'z',motorArmature,32);
+cyl(.13,.13,.11,copperMotor,[0,0,-.235],'z',motorArmature,32);
+for(let i=0;i<8;i++){
+ const a=i*Math.PI/4;
+ const contact=box([.085,.045,.07],mat.brass,[.145*Math.cos(a),.145*Math.sin(a),-.235],motorArmature);
+ contact.rotation.z=a;
+}
+// Fixed brushes contact the rotating commutator at the rear of the motor.
+for(const side of [-1,1])box([.12,.085,.09],mat.rubber,[side*.185,-.26,-1.145],hcu);
+cyl(.35,.35,.05,mat.silver,[0,-.26,-1.207],'z',hcu,64);
+for(let i=0;i<5;i++)torus(.447,.009,mat.steel,[0,-.26,-.76-i*.085],'z',hcu);
+// shallow ECU tray, opened toward viewer: solenoids are INSIDE the rectangular housing
+const ecu=box([1.72,1.12,.19],mat.plastic,[0,-.17,.38],hcu);cut.push(ecu);
+const ecuRim=box([1.84,.10,.30],mat.dark,[0,.43,.43],hcu);
+box([1.84,.10,.30],mat.dark,[0,-.77,.43],hcu);
+for(const x of [-.87,.87])box([.11,1.22,.30],mat.dark,[x,-.17,.43],hcu);
+const solenoids=[];
+for(let i=0;i<8;i++){
+  const x=-.57+(i%4)*.38, y=.11-Math.floor(i/4)*.46;
+  const sol=new THREE.Group();sol.position.set(x,y,.53);hcu.add(sol);
+  cyl(.145,.145,.10,mat.silver,[0,0,0],'z',sol,48);
+  torus(.115,.021,mat.brass,[0,0,.058],'z',sol);
+  cyl(.078,.078,.018,mat.dark,[0,0,.069],'z',sol,40);
+  solenoids.push(sol);
+}
+// HCU sectional teaching overlay: four inlet valves (normally open),
+// four outlet valves (normally closed), two accumulators and a pump circuit.
+// Valve stems sit inside the hydraulic block immediately behind the actuator faces.
+// All eight faces project beyond the ECU cover, with identical depth and clearance.
+// Both parts travel together in this simplified teaching animation.
+// Valve stem positions are animated separately from master-cylinder movement.
+const absValveStems=[];
+const valveInletMat=M(0x62d2a8,.65,.25);
+const valveOutletMat=M(0xe9a567,.65,.25);
+for(let circuit=0;circuit<4; circuit++){
+ const x=-.57+circuit*.38;
+ for(let type=0;type<2;type++){
+  const y=type===0?.11:-.35;
+  const stem=new THREE.Group();stem.position.set(x,y,.35);hcu.add(stem);
+  cyl(.045,.045,.17,type===0?valveInletMat:valveOutletMat,[0,0,0],'z',stem,20);
+  cyl(.085,.085,.035,mat.dark,[0,0,-.085],'z',stem,24);
+  absValveStems.push({stem,type,circuit,baseZ:.35});
+ }
+}
+const absAccumulators=[];
+for(const x of [-.43,.43]){
+ const chamber=cyl(.13,.13,.31,windowMat,[x,-.68,.64],'y',hcu,32);
+ const plunger=cyl(.105,.105,.055,mat.blue,[x,-.72,.64],'y',hcu,32);
+ absAccumulators.push(plunger);
+}
+box([.55,.30,.32],mat.plastic,[0,-.92,.47],hcu);
+for(let i=0;i<10;i++)cyl(.019,.019,.10,mat.brass,[-.21+i*.046,-.92,.66],'z',hcu,10);
+// wheel assembly: wheel axle horizontal, left/right share front/rear track alignment
+const wheelEnds=[];
+const rearPipePorts={};
+const frontPipePorts={};
+function makeWheel(label,pos,front,mirror=1){
+ const root=new THREE.Group();root.position.set(...pos);scene.add(root);
+ // Local z is the wheel axle. Rotate each side to face outward in opposite directions.
+ root.rotation.y=mirror===1?Math.PI/2:-Math.PI/2;
+ const disc=new THREE.Group();root.add(disc);rotors.push(disc);
+ if(front){
+  // Vented rotor: true annular friction faces, open central bore and recessed
+  // rear hat cavity. The rotor bell is separate from the wheel hub/studs.
+  function annularDisc(outer,inner,thick,z,material,parent){
+    const shape=new THREE.Shape();shape.absarc(0,0,outer,0,Math.PI*2,false);
+    const hole=new THREE.Path();hole.absarc(0,0,inner,0,Math.PI*2,true);shape.holes.push(hole);
+    const geom=new THREE.ExtrudeGeometry(shape,{depth:thick,bevelEnabled:false,curveSegments:100});
+    const obj=mesh(geom,material,parent);obj.position.z=z;return obj;
+  }
+  annularDisc(1.10,.47,.052,-.112,mat.rotor,disc);
+  annularDisc(1.10,.47,.052,.060,mat.rotor,disc);
+  // Ventilation ribs occupy only the swept annulus, leaving the hat hollow.
+  for(let k=0;k<40;k++){
+    const a=k*Math.PI*2/40;
+    const vane=box([.46,.045,.12],mat.dark,[.77*Math.cos(a),.77*Math.sin(a),0],disc);
+    vane.rotation.z=a;
+  }
+  torus(1.075,.013,mat.silver,[0,0,.113],'z',disc);
+  // Rotor hat: cylindrical wall with an open back, a face with centre bore,
+  // and a recessed pocket behind the hat instead of a solid rear disc.
+  annularDisc(.49,.335,.060,.16,mat.cast,disc);
+  const hatWall=mesh(new THREE.CylinderGeometry(.49,.49,.21,96,1,true),mat.cast,disc);
+  hatWall.rotation.x=Math.PI/2;hatWall.position.z=.055;
+  annularDisc(.365,.195,.045,.225,mat.cast,disc);
+  // Wheel hub flange and five wheel studs remain visible through the rotor hat.
+  // Keep the hub opening unobstructed from the rear: no solid axle cylinder through the bore.
+  // The studs remain mounted on the rotor hat face for this teaching view.
+  for(let i=0;i<5;i++){
+    const a=i*2*Math.PI/5;
+    const x=.277*Math.cos(a),y=.277*Math.sin(a);
+    cyl(.047,.047,.17,mat.silver,[x,y,.31],'z',disc,24);
+  }
+  // V19 complete replacement: single-piston sliding caliper.
+  // The rotor centre is (0,0); the caliper straddles its LEFT perimeter.
+  // The carrier is fixed, while the cast housing floats axially on two guides.
+  const bracket=new THREE.Group();bracket.position.set(-.80,0,0);root.add(bracket);
+  // Pad swept area: annular sector on the left side of the rotor, leaving
+  // the hat and wheel hub entirely clear. Coordinates are carrier-local.
+  const padOutline=new THREE.Shape();
+  const start=Math.PI-.53,end=Math.PI+.53;
+  const inner=.54,outer=1.06;
+  for(let i=0;i<=40;i++){
+    const t=start+(end-start)*i/40;
+    const x=.80+outer*Math.cos(t),y=outer*Math.sin(t);
+    if(i===0)padOutline.moveTo(x,y);else padOutline.lineTo(x,y);
+  }
+  for(let i=40;i>=0;i--){
+    const t=start+(end-start)*i/40;
+    padOutline.lineTo(.80+inner*Math.cos(t),inner*Math.sin(t));
+  }
+  padOutline.closePath();
+  function pad(z,depth,material){
+    const o=mesh(new THREE.ExtrudeGeometry(padOutline,{depth,bevelEnabled:false,curveSegments:20}),material,bracket);
+    o.position.z=z;return o;
+  }
+  const inPad=pad(-.185,.065,mat.pad);
+  const outPad=pad(.12,.065,mat.pad);
+  const inPlate=pad(-.235,.045,mat.steel);
+  const outPlate=pad(.19,.045,mat.steel);
+  // Fixed carrier is a separate, thin horseshoe behind the rotor. Its
+  // abutment ears support the two pad ends; the wheel-facing centre stays open.
+  const carrier=extrudedShape([[-.18,-.72],[-.34,-.64],[-.43,-.46],[-.43,.46],[-.34,.64],[-.18,.72],[-.10,.57],[-.24,.43],[-.24,-.43],[-.10,-.57]],.13,mat.dark,bracket,.025);
+  carrier.position.z=-.32;
+  for(const y of [-.58,.58]){
+    box([.22,.11,.28],mat.cast,[-.26,y,-.16],bracket);
+    box([.19,.04,.10],mat.silver,[-.25,y,.015],bracket);
+  }
+  // Caliper housing: broad inboard cylinder with rubber piston seal;
+  // outboard reaction fingers joined by an outer casting, with a central
+  // inspection opening. This casting does not reach toward the hub.
+  const cal=new THREE.Group();bracket.add(cal);
+  cyl(.38,.38,.32,mat.cast,[-.08,0,-.43],'z',cal,64);
+  cyl(.32,.32,.10,mat.dark,[-.08,0,-.26],'z',cal,64);
+  torus(.31,.027,mat.rubber,[-.08,0,-.215],'z',cal);
+  const piston=cyl(.275,.275,.12,mat.silver,[-.08,0,-.23],'z',cal,64);
+  // Slide guides are mounted on the INBOARD piston side, one at each end.
+  // The outer sleeves belong to the sliding casting, while the guides
+  // belong to the stationary carrier.
+  for(const y of [-.58,.58]){
+    cyl(.092,.092,.26,mat.steel,[-.08,y,-.53],'z',bracket,32);
+    hex(.105,.065,mat.dark,[-.08,y,-.69],'z',bracket);
+    cyl(.128,.128,.18,mat.cast,[-.08,y,-.49],'z',cal,32);
+    for(const z of [-.40,-.54])torus(.115,.019,mat.rubber,[-.08,y,z],'z',cal);
+  }
+  // Bridges over the rotor edge connect the inboard piston barrel to the
+  // outer claw. No geometry is allowed inside the rotor hat radius.
+  const topBridge=extrudedShape([[-.36,.39],[-.34,.58],[-.23,.69],[.08,.68],[.20,.54],[.14,.43]],.62,mat.cast,cal,.035);
+  topBridge.position.z=-.29;
+  const bottomBridge=extrudedShape([[-.36,-.39],[-.34,-.58],[-.23,-.69],[.08,-.68],[.20,-.54],[.14,-.43]],.62,mat.cast,cal,.035);
+  bottomBridge.position.z=-.29;
+  // One contiguous outer casting, shaped like the broad outboard claw of
+  // the floating caliper. Its hub-side edge is x <= -.13
+  // in carrier coordinates, hence >= .93 from the hub centre globally.
+  const face=new THREE.Shape();
+  face.moveTo(-.30,-.50);
+  face.bezierCurveTo(-.39,-.40,-.43,-.26,-.43,0);
+  face.bezierCurveTo(-.43,.26,-.39,.40,-.30,.50);
+  face.quadraticCurveTo(-.16,.59,.02,.57);
+  face.quadraticCurveTo(.18,.53,.19,.37);
+  face.lineTo(.19,-.37);
+  face.quadraticCurveTo(.18,-.53,.02,-.57);
+  face.quadraticCurveTo(-.16,-.59,-.30,-.50);
+  const opening=new THREE.Path();
+  opening.moveTo(-.21,-.115);
+  opening.bezierCurveTo(-.30,-.04,-.30,.06,-.21,.115);
+  opening.bezierCurveTo(-.06,.16,.04,.09,.045,0);
+  opening.bezierCurveTo(.04,-.09,-.06,-.16,-.21,-.115);
+  face.holes.push(opening);
+  const claw=mesh(new THREE.ExtrudeGeometry(face,{depth:.13,bevelEnabled:true,bevelThickness:.022,bevelSize:.018,bevelSegments:3,curveSegments:24}),mat.cast,cal);
+  claw.position.z=.27;
+  // Cast stiffening shoulders on the outboard reaction claw.
+  for(const y of [-.38,.38]){
+    box([.20,.12,.09],mat.cast,[-.17,y,.35],cal);
+  }
+  // Lower inboard brake hose port: machined boss and banjo bolt.
+  // Port faces toward the rear of the piston housing (negative local z).
+  cyl(.123,.123,.10,mat.cast,[-.03,.18,-.635],'z',cal,40);
+  cyl(.102,.102,.048,mat.brass,[-.03,.18,-.706],'z',cal,32);
+  hex(.078,.058,mat.silver,[-.03,.18,-.749],'z',cal);
+  torus(.085,.012,mat.brass,[-.03,.18,-.735],'z',cal);
+  // Bleed valve moved to the higher position on the inboard cylinder casting.
+  cyl(.072,.072,.075,mat.cast,[-.285,.29,-.625],'z',cal,32);
+  hex(.068,.072,mat.brass,[-.285,.29,-.692],'z',cal);
+  cyl(.029,.029,.10,mat.silver,[-.285,.29,-.778],'z',cal,24);
+  const bleedTip=mesh(new THREE.ConeGeometry(.044,.066,24),mat.silver,cal);
+  bleedTip.rotation.x=-Math.PI/2;
+  bleedTip.position.set(-.285,.29,-.859);
+  // Record the hose end in world coordinates. The ABS tubing is generated as
+  // one continuous curved path to this port (no disconnected end stub).
+  root.updateWorldMatrix(true,false);
+  const portEnd=cal.localToWorld(new THREE.Vector3(-.03,.18,-.78));
+  const outward=cal.localToWorld(new THREE.Vector3(-.03,.18,-1.18));
+  frontPipePorts[label]={end:portEnd,dir:outward.sub(portEnd).normalize()};
+  wheelEnds.push({root,front,disc,cal,piston,inPad,outPad,inPlate,outPlate,bracket});
+ }else{
+  // Semi-transparent removable rear drum cover. Added without changing any
+  // existing shoe, backing plate, wheel-cylinder, or hydraulic geometry.
+  // Drum radius .975 closely clears the lining at maximum application (~.972),
+  // while preserving the existing shoe pivots, applied travel and hardware.
+  const drumGlass=M(0x9db5c1,.48,.20,{transparent:true,opacity:.62,
+    depthWrite:false,side:THREE.DoubleSide});
+  const drumFaceGlass=M(0xabbfc8,.40,.24,{transparent:true,opacity:.56,
+    depthWrite:false,side:THREE.DoubleSide});
+  const drumShell=new THREE.Group();disc.add(drumShell);
+  // Open-backed drum barrel: local Z runs from the backing plate to the wheel face.
+  const barrel=mesh(new THREE.CylinderGeometry(.975,.975,.52,120,1,true),drumGlass,drumShell);
+  barrel.rotation.x=Math.PI/2;
+  barrel.position.z=.035; // back edge -.225; front edge +.295
+  barrel.castShadow=false;barrel.receiveShadow=false;
+  // Wheel-facing annular drum face leaves the central hub open.
+  const drumFaceShape=new THREE.Shape();
+  drumFaceShape.absarc(0,0,.975,0,Math.PI*2,false);
+  const hubHole=new THREE.Path();hubHole.absarc(0,0,.27,0,Math.PI*2,true);
+  drumFaceShape.holes.push(hubHole);
+  const drumFace=mesh(new THREE.ShapeGeometry(drumFaceShape,120),drumFaceGlass,drumShell);
+  drumFace.position.z=.297;drumFace.castShadow=false;drumFace.receiveShadow=false;
+  // Fine outer rim gives the drum its recognisable rolled edge.
+  const lip=torus(.973,.017,drumGlass,[0,0,.285],'z',drumShell);
+  lip.castShadow=false;lip.receiveShadow=false;
+  // Add five wheel studs to the installed drum so students can see the drum/wheel mounting.
+  for(let i=0;i<5;i++){
+    const a=i*2*Math.PI/5;
+    const x=.277*Math.cos(a),y=.277*Math.sin(a);
+    cyl(.047,.047,.17,mat.silver,[x,y,.375],'z',drumShell,24);
+  }
+  // Rear drum REMOVED. Outboard (+local Z) faces away from vehicle centre
+  // on BOTH sides. Steel backing plate is BEHIND the exposed shoes.
+  const back=cyl(1.075,1.075,.075,mat.dark,[0,0,-.28],'z',root,120);
+  torus(1.015,.045,mat.cast,[0,0,-.23],'z',root);
+  // stamped backing plate ribs / curved raised edge
+  torus(.92,.018,mat.steel,[0,0,-.205],'z',root);
+  cyl(.31,.31,.15,mat.cast,[0,0,-.16],'z',root,64);
+  // Seat the complete brake mechanism closer to the outboard face of the backing plate.
+  // Keep plate and its pressed ribs stationary; wheel cylinder, shoes, springs,
+  // adjuster and anchor share one local mounting plane.
+  const drumHardware=new THREE.Group();
+  drumHardware.position.z=-.125;
+  root.add(drumHardware);
+  // Compact cast wheel cylinder: ends stop short of the shoe webs.
+  // The pushrod tip alone contacts the upper steel shoe ends.
+  // This avoids the cylinder barrel cutting through the steel shoe web.
+  cyl(.18,.18,.46,mat.cast,[0,.77,-.025],'x',drumHardware,48);
+  // Narrow stepped cylinder outlets. Their small diameter gives the shoe web
+  // clearance, while preserving the exposed pushrod's contact with the shoe.
+  const wheelPistons=[];
+  for(let sign of [-1,1]){
+    cyl(.102,.102,.065,mat.cast,[sign*.253,.77,-.025],'x',drumHardware,40);
+    // A moulded EPDM accordion dust boot follows the piston pushrod.
+    // Bellows are assembled as one movable group for animation.
+    const boot=new THREE.Group();drumHardware.add(boot);
+    boot.position.set(sign*.281,.77,-.025);
+    const bootLength=.105;
+    const radii=[.106,.113,.094,.113,.091,.108,.080];
+    const profile=radii.map((r,i)=>new THREE.Vector2(r,i*bootLength/(radii.length-1)));
+    const bootMesh=mesh(new THREE.LatheGeometry(profile,48),mat.rubber,boot);
+    bootMesh.rotation.z=sign*Math.PI/2;
+    bootMesh.position.x=-sign*.050;
+    // Outer dust seal: broad rubber collar grips the cylinder outlet, with
+    // a tapered flexible lip sealing around the moving piston pushrod.
+    const outerSeal=new THREE.Group();drumHardware.add(outerSeal);
+    outerSeal.position.set(sign*.285,.77,-.025);
+    const sealProfile=[new THREE.Vector2(.105,0),new THREE.Vector2(.117,.012),
+      new THREE.Vector2(.117,.035),new THREE.Vector2(.092,.065),
+      new THREE.Vector2(.063,.085),new THREE.Vector2(.050,.097),
+      new THREE.Vector2(.050,.110)];
+    const outerRubber=mesh(new THREE.LatheGeometry(sealProfile,48),mat.rubber,outerSeal);
+    outerRubber.rotation.z=sign*Math.PI/2;
+    // The metal pushrod projects from the flexible boot and terminates
+    // against the shoe steel contact tab (not against friction lining).
+    const pushrod=cyl(.047,.047,.115,mat.steel,[sign*.325,.77,-.025],'x',drumHardware,32);
+    const head=cyl(.066,.066,.035,mat.cast,[sign*.373,.77,-.025],'x',drumHardware,32);
+    wheelPistons.push({sign,boot,outerSeal,pushrod,head});
+  }
+  // True left and right half-moon shoes. Their upper ends reach the
+  // wheel cylinder, and lower ends meet the adjuster. No overlap.
+  const shoes=[];
+  const radius=.825;
+  const topAngle=1.15; // upper/lower ends at x=±0.337, y=±0.753
+  for(let sign of [-1,1]){
+    // Rotate about the lower adjuster contact. Upper shoe tip moves outward
+    // with wheel-cylinder piston stroke; lower tip stays seated.
+    const group=new THREE.Group();group.position.set(sign*.337,-.753,0);drumHardware.add(group);shoes.push({group,sign});
+    const shoePart=new THREE.Group();shoePart.position.set(-sign*.337,.753,0);group.add(shoePart);
+    const pts=[];
+    for(let k=0;k<=72;k++){
+      const t=-topAngle+2*topAngle*k/72;
+      const a=sign===1?t:Math.PI-t;
+      pts.push(new THREE.Vector3(radius*Math.cos(a),radius*Math.sin(a),.015));
+    }
+    // Broad curved steel shoe table and friction lining: genuine annular bands,
+    // not rounded hoses. The lining spans the width of the steel table.
+    function curvedBand(innerR,outerR,z0,z1,material,name){
+      const steps=84,vertices=[],indices=[];
+      for(let k=0;k<=steps;k++){
+        const t=-topAngle+(2*topAngle*k/steps);
+        const a=sign===1?t:Math.PI-t;
+        for(const z of [z0,z1])for(const r of [innerR,outerR])
+          vertices.push(r*Math.cos(a),r*Math.sin(a),z);
+      }
+      for(let k=0;k<steps;k++){
+        const i=k*4,j=(k+1)*4;
+        // inner, outer, front, rear walls; reverse winding is handled by DoubleSide
+        for(const [a,b,c,d] of [[0,1,5,4],[2,6,7,3],[0,4,6,2],[1,3,7,5]]){
+          indices.push(i+a,i+b,i+c,i+a,i+c,i+d);
+        }
+      }
+      for(const end of [0,steps*4]){
+        indices.push(end,end+2,end+3,end,end+3,end+1);
+      }
+      const g=new THREE.BufferGeometry();
+      g.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));
+      g.setIndex(indices);g.computeVertexNormals();
+      const o=mesh(g,material,shoePart);o.name=name;return o;
+    }
+    // Shoe table supports the friction lining. Wide flat radial thickness,
+    // substantial axial width, and a visible narrower stamped shoe web.
+    curvedBand(.795,.872,-.045,.205,mat.cast,'Pressed steel shoe table');
+    const liningMat=mat.pad.clone();liningMat.side=THREE.DoubleSide;
+    curvedBand(.874,.937,-.025,.185,liningMat,'Wide friction lining');
+    const webMat=mat.steel.clone();webMat.side=THREE.DoubleSide;
+    curvedBand(.655,.795,.064,.105,webMat,'Shoe stamped support web');
+    // Steel ends meet the wheel-cylinder pushrod and lower adjuster.
+    // Shoe-to-shoe springs attach to the steel webs, not friction material.
+    for(const y of [-.748,.748]){
+      const x=sign*.335;
+      const tab=box([.13,.16,.13],mat.cast,[x,y,.067],shoePart);
+    }
+
+  }
+  // Cross-shoe return springs: the hooks terminate at the stamped STEEL
+  // shoe webs, inboard of the friction lining. No circular retaining pins.
+  function spring(name,y,halfSpan,z,coilRadius,turns){
+    const inner=halfSpan-.105,pts=[];const N=120;
+    for(let i=0;i<=N;i++){
+      const u=i/N, x=-inner+2*inner*u;
+      const a=u*Math.PI*2*turns;
+      const fade=Math.min(1,u*18,(1-u)*18);
+      pts.push([x,y+Math.cos(a)*coilRadius*fade,z+Math.sin(a)*coilRadius*fade]);
+    }
+    line(pts,.013,mat.silver,drumHardware);
+    // Short curved hooks wrap into the web; never pass into lining.
+    line([[-inner,y,z],[-halfSpan+.02,y+.025,z],[-halfSpan,y+.045,z]],.014,mat.silver,drumHardware);
+    line([[inner,y,z],[halfSpan-.02,y+.025,z],[halfSpan,y+.045,z]],.014,mat.silver,drumHardware);
+  }
+  spring('Upper web return spring',.44,.55,.095,.035,11);
+  spring('Lower web return spring',-.44,.55,.095,.035,10);
+  // Bottom threaded shoe adjuster: shaft, end sockets and a toothed star wheel.
+  // The star is an actual 3D serrated profile (not a round collar).
+  cyl(.065,.065,.62,mat.brass,[0,-.75,.12],'x',drumHardware,32);
+  for(let sign of [-1,1]){
+    cyl(.102,.102,.10,mat.cast,[sign*.32,-.75,.12],'x',drumHardware,32);
+    cyl(.078,.078,.11,mat.dark,[sign*.22,-.75,.12],'x',drumHardware,24);
+  }
+  const starTeeth=14, starShape=new THREE.Shape();
+  for(let k=0;k<starTeeth*2;k++){
+    const a=(k*Math.PI/starTeeth)+Math.PI/2;
+    const r=k%2===0?.145:.108;
+    const x=r*Math.cos(a),y=r*Math.sin(a);
+    if(k===0)starShape.moveTo(x,y);else starShape.lineTo(x,y);
+  }
+  starShape.closePath();
+  const starGeom=new THREE.ExtrudeGeometry(starShape,{depth:.085,bevelEnabled:true,
+    bevelThickness:.007,bevelSize:.005,bevelSegments:1,steps:1});
+  const starWheel=mesh(starGeom,mat.brass,drumHardware);
+  starWheel.rotation.y=Math.PI/2;
+  starWheel.position.set(-.043,-.75,.12);
+  // No wheel studs when the drum is removed. Upper black circular anchor removed.
+  // Wheel-cylinder casting protrudes through the backing plate on the INBOARD face.
+  // Backing plate is local z=-.28, inboard is negative z.
+  cyl(.16,.16,.115,mat.cast,[0,.77,-.365],'z',root,48);
+  cyl(.205,.205,.045,mat.cast,[0,.77,-.334],'z',root,48);
+  // Hydraulic line flare seat, threaded hex union and short rigid pipe.
+  cyl(.083,.083,.14,mat.cast,[-.105,.77,-.44],'z',root,32);
+  hex(.095,.11,mat.brass,[-.105,.77,-.51],'z',root);
+  cyl(.041,.041,.09,mat.steel,[-.105,.77,-.575],'z',root,24);
+  // Record exact world-space brake pipe attachment at the back of the union.
+  // The ABS line below is a SINGLE continuous tube ending here.
+  root.updateWorldMatrix(true,false);
+  rearPipePorts[label]=root.localToWorld(new THREE.Vector3(-.105,.77,-.60));
+  // Separate wheel-cylinder bleeder screw: hex, nipple and tapered tip.
+  cyl(.073,.073,.105,mat.cast,[.115,.77,-.425],'z',root,32);
+  hex(.071,.085,mat.brass,[.115,.77,-.50],'z',root);
+  cyl(.032,.032,.105,mat.silver,[.115,.77,-.585],'z',root,24);
+  const bleedTip=mesh(new THREE.ConeGeometry(.046,.08,24),mat.silver,root);
+  bleedTip.position.set(.115,.77,-.655);
+  bleedTip.rotation.x=-Math.PI/2;
+  wheelEnds.push({root,front,disc,shoes,wheelPistons});
+ }
+}
+// Positive x is the right side of the vehicle; front/rear wheels share exact x.
+makeWheel('LF',[-5,-1.6,5.1],true,-1);
+makeWheel('RF',[5,-1.6,5.1],true,1);
+makeWheel('LR',[-5,-1.6,-5.6],false,-1);
+makeWheel('RR',[5,-1.6,-5.6],false,1);
+// Physical brake tubing with curved routing; pressure pulse overlays track input
+const pipes=[
+[[-1.4,1.2,-.25],[-.6,1.65,-.55],[.2,1.7,-.6],[1.55,1.8,-.4]],
+[[-1.1,1.1,-.25],[-.4,1.15,-.8],[.5,1.45,-1.2],[1.55,1.75,-.8]],
+[[1.9,2.1,.2],[1.3,1.9,1.6],[.1,1.3,2.6],[-3.6,-.65,2.6],[-4.55,-1.3,2.6]],
+[[2.2,2.1,.2],[3.2,1.6,1.4],[4.2,-.4,2.6],[4.55,-1.3,2.6]],
+[[2.4,2.1,-.1],[2.1,1.7,-2.0],[.2,-.2,-3.1],[-3.7,-1.20,-3.1]],
+[[2.7,2.1,-.1],[3.4,.8,-1.5],[3.7,-1.20,-3.1]]];
+// Six physical HCU ports: the FIRST TWO (leftmost) receive the two
+// master-cylinder circuits; the remaining FOUR feed the wheel brakes.
+// The tube begins at the visible top nipple, then rises above the casting
+// before sweeping away, so the front lines cannot intersect the HCU body.
+const hcuTopPort=i=>new THREE.Vector3(2.15-.59+i*.235,1.38+.425,-.44);
+const absMasterInlet=[hcuTopPort(0),hcuTopPort(1)];
+const absWheelOutlet={LF:hcuTopPort(2),RF:hcuTopPort(3),LR:hcuTopPort(4),RR:hcuTopPort(5)};
+// Catmull-Rom in centripetal mode produces a continuous smooth tube through
+// these wide-radius routing stations, with no sharp elbows or disconnected stubs.
+function smoothBrakeRoute(points){
+  const curve=new THREE.CatmullRomCurve3(points,false,'centripetal',.35);
+  return curve.getPoints(180).map(p=>[p.x,p.y,p.z]);
+}
+// The master-cylinder-to-HCU lines use the two reserved ports, not wheel ports.
+for(let i=0;i<2;i++){
+  const x=i===0?.10:1.03;
+  const end=absMasterInlet[i];
+  // Ports are defined in master-cylinder local coordinates; transform after rotation.
+  master.updateWorldMatrix(true,false);
+  const source=master.localToWorld(new THREE.Vector3(x,-.14,-.53));
+  // Broad, parallel sweeps: leave the outlet in its fitting direction,
+  // travel toward the ABS unit without looping over either line, then
+  // descend vertically into the reserved inlet fitting.
+  const laneZ = i===0 ? -.99 : -.48;
+  pipes[i]=smoothBrakeRoute([
+    source,
+    source.clone().add(new THREE.Vector3(.24,-.015,0)),
+    new THREE.Vector3(source.x+.60,source.y+.06,source.z),
+    new THREE.Vector3(source.x+1.08,1.92,laneZ),
+    new THREE.Vector3(end.x-1.08,2.02,laneZ),
+    new THREE.Vector3(end.x-.52,2.13,laneZ),
+    new THREE.Vector3(end.x-.18,2.18,end.z),
+    new THREE.Vector3(end.x,2.15,end.z),
+    end.clone().add(new THREE.Vector3(0,.20,0)),
+    end
+  ]);
+}
+// Route each front tube UP and OUT of the HCU before turning toward its wheel.
+// The upper approach clears the alloy block and the ECU enclosure.
+for(const [idx,key,side] of [[2,'LF',-1],[3,'RF',1]]){
+  const port=frontPipePorts[key];
+  const end=port.end.clone();
+  const start=absWheelOutlet[key];
+  const near=end.clone().addScaledVector(port.dir,.28);
+  const lead=end.clone().addScaledVector(port.dir,.72);
+  const run=side===-1 ? [
+    new THREE.Vector3(.9,2.28,.75),
+    new THREE.Vector3(-.65,1.15,2.45),
+    new THREE.Vector3(-2.65,-.15,4.20),
+    new THREE.Vector3(-3.9,-.9,4.95)
+  ] : [
+    new THREE.Vector3(3.18,2.22,.80),
+    new THREE.Vector3(3.75,.55,2.45),
+    new THREE.Vector3(4.25,-.65,4.85)
+  ];
+  pipes[idx]=smoothBrakeRoute([
+    start,
+    start.clone().add(new THREE.Vector3(0,.28,0)),
+    start.clone().add(new THREE.Vector3(0,.46,.18)),
+    ...run,lead,near,end
+  ]);
+}
+for(const [idx,key,side] of [[4,'LR',-1],[5,'RR',1]]){
+  const end=rearPipePorts[key].clone();
+  const start=absWheelOutlet[key];
+  const near=end.clone().add(new THREE.Vector3(-side*.24,0,-.08));
+  const lead=end.clone().add(new THREE.Vector3(-side*.68,.05,-.18));
+  const run=side===-1 ? [
+    new THREE.Vector3(1.2,1.25,-1.15),
+    new THREE.Vector3(.1,.25,-3.15),
+    new THREE.Vector3(-1.2,-.7,-4.85),
+    new THREE.Vector3(-3.1,-1.1,-5.75)
+  ] : [
+    new THREE.Vector3(2.8,1.15,-1.05),
+    new THREE.Vector3(3.3,.1,-3.1),
+    new THREE.Vector3(3.85,-.9,-5.45)
+  ];
+  pipes[idx]=smoothBrakeRoute([start,start.clone().add(new THREE.Vector3(0,.35,-.12)),...run,lead,near,end]);
+}
+for(let i=0;i<pipes.length;i++){
+  line(pipes[i],.027,mat.silver);
+  // Separate materials allow the master-cylinder feed lines to glow steadily
+  // with pedal input, independent of downstream ABS modulation.
+  const glowMat=(i<2?mat.blue:mat.fluid).clone();
+  if(i<2){glowMat.emissive=new THREE.Color(0x168fce);glowMat.emissiveIntensity=.9;}
+  const glow=line(pipes[i],.037,glowMat);
+  glow.visible=false;
+  activePressure.push(glow);
+}
+// floating label sprites, always face camera
+function label(txt,at){const canvas=document.createElement('canvas');canvas.width=512;canvas.height=88;const ctx=canvas.getContext('2d');
+ctx.fillStyle='rgba(11,23,36,.85)';ctx.beginPath();ctx.roundRect(0,0,512,88,18);ctx.fill();
+ctx.strokeStyle='#62849c';ctx.lineWidth=3;ctx.stroke();ctx.fillStyle='#eaf4fc';ctx.font='bold 34px system-ui';ctx.textAlign='center';ctx.fillText(txt,256,57);
+const tex=new THREE.CanvasTexture(canvas);const s=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false}));s.position.set(...at);s.scale.set(2.3,.4,1);scene.add(s)}
+label('MASTER CYLINDER + BOOSTER',[-2.9,3.25,0]);
+label('ABS HYDRAULIC MODULATOR',[2.2,3.1,0]);
+label('FRONT LEFT DISC',[-5,-3.05,5.1]);label('FRONT RIGHT DISC',[5,-3.05,5.1]);
+label('REAR LEFT SHOES',[-5,-3.05,-5.6]);label('REAR RIGHT SHOES',[5,-3.05,-5.6]);
+let braking=false,abs=false,playing=false,phase=0,force=.7;
+// Conceptual vehicle/wheel-speed model: values in km/h, wheel hubs rotate in radians.
+// Braking decelerates the vehicle while individual wheel speeds can slip or lock;
+// ABS regulates slip, not the driver's held pedal/master-cylinder pressure.
+let selectedSpeed=60, vehicleSpeed=60;
+// Approximate peak/locked-slip friction coefficients for a level road on generic tyres.
+// Surface, tyres and temperature greatly affect real stopping distances. On loose
+// surfaces locked tyres can build a material wedge, which this simple model omits.
+const roadSurfaces={
+ dry:{name:'Dry asphalt',peak:.94,slide:.67},
+ wet:{name:'Wet asphalt',peak:.62,slide:.43},
+ gravel:{name:'Loose gravel',peak:.48,slide:.39},
+ snow:{name:'Packed snow',peak:.29,slide:.22},
+ ice:{name:'Ice',peak:.12,slide:.085}
+};
+let road=roadSurfaces.dry;
+let stoppingDistance=0,brakingSeconds=0;
+const lockTimers=[0,0,0,0];
+let absRegulating=false;
+// A wheel can stop rotating while the vehicle continues sliding.
+const wheelLocked=[false,false,false,false];
+let lockIndicator=false;
+const wheelSpeeds=[60,60,60,60];
+const wheelSlipPhase=[0,1.7,3.0,4.4];
+const speedGraphCanvas=document.getElementById('speedChart');
+const speedGraphCtx=speedGraphCanvas.getContext('2d');
+const graphPalette=['#fff4a8','#52d6f7','#ff878e','#8be4a0','#c59cff'];
+const graphHistory=[];
+let graphClock=0,graphSampler=0;
+function clearSpeedGraph(){graphHistory.length=0;graphClock=0;graphSampler=0;graphHistory.push({t:0,v:[vehicleSpeed,...wheelSpeeds]});}
+function graphSample(dt){
+  graphClock+=dt;graphSampler+=dt;
+  if(graphSampler>=.10){graphSampler%= .10;graphHistory.push({t:graphClock,v:[vehicleSpeed,...wheelSpeeds]});}
+  while(graphHistory.length>2&&graphHistory[1].t<graphClock-20)graphHistory.shift();
+}
+function drawSpeedGraph(){
+  const rect=speedGraphCanvas.getBoundingClientRect();
+  if(rect.width<10||rect.height<10)return;
+  const dpr=Math.min(window.devicePixelRatio||1,2),w=rect.width,h=rect.height;
+  const pixelW=Math.round(w*dpr),pixelH=Math.round(h*dpr);
+  if(speedGraphCanvas.width!==pixelW||speedGraphCanvas.height!==pixelH){speedGraphCanvas.width=pixelW;speedGraphCanvas.height=pixelH;}
+  const ctx=speedGraphCtx;ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,w,h);ctx.fillStyle='#091522';ctx.fillRect(0,0,w,h);
+  const left=52,right=w-12,top=12,bottom=h-28,pw=Math.max(1,right-left),ph=Math.max(1,bottom-top);
+  const maxSeen=Math.max(selectedSpeed,vehicleSpeed,...wheelSpeeds,...graphHistory.flatMap(s=>s.v));
+  const yMax=Math.max(20,Math.ceil((maxSeen+8)/20)*20);
+  const xRight=Math.max(20,graphClock),xLeft=xRight-20;
+  ctx.font='11px system-ui, sans-serif';ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){
+    const y=bottom-ph*i/4;
+    ctx.strokeStyle='#294057';ctx.beginPath();ctx.moveTo(left,y);ctx.lineTo(right,y);ctx.stroke();
+    ctx.fillStyle='#aec5da';ctx.textAlign='right';ctx.fillText((yMax*i/4).toFixed(0),left-8,y+4);
+  }
+  for(let i=0;i<=4;i++){
+    const x=left+pw*i/4;
+    ctx.strokeStyle='#22374b';ctx.beginPath();ctx.moveTo(x,top);ctx.lineTo(x,bottom);ctx.stroke();
+    ctx.fillStyle='#a1b8cc';ctx.textAlign='center';ctx.fillText((xLeft+5*i).toFixed(0)+'s',x,bottom+17);
+  }
+  ctx.save();ctx.beginPath();ctx.rect(left,top,pw,ph);ctx.clip();
+  for(let k=0;k<5;k++){
+    ctx.beginPath();ctx.strokeStyle=graphPalette[k];ctx.lineWidth=k===0?2.6:1.7;
+    let first=true;
+    for(const sample of graphHistory){
+      if(sample.t<xLeft)continue;
+      const x=left+(sample.t-xLeft)/20*pw,y=bottom-sample.v[k]/yMax*ph;
+      if(first){ctx.moveTo(x,y);first=false;}else ctx.lineTo(x,y);
+    }
+    if(!first){ctx.lineJoin='round';ctx.stroke();}
+  }
+  ctx.restore();
+  ctx.fillStyle='#d7e6f2';ctx.textAlign='left';ctx.fillText('km/h',7,14);
+}
+clearSpeedGraph();
+
+function restartMotion(){vehicleSpeed=selectedSpeed;wheelSpeeds.fill(selectedSpeed);wheelLocked.fill(false);lockTimers.fill(0);lockIndicator=false;absRegulating=false;stoppingDistance=0;brakingSeconds=0;phase=0;clearSpeedGraph();}
+
+const $=id=>document.getElementById(id);
+function updateButtons(){
+$('absOn').classList.toggle('active',abs);$('absOff').classList.toggle('active',!abs);
+$('apply').classList.toggle('active',braking);$('play').textContent=playing?'❚❚ Pause':'▶ Run';
+}
+$('apply').onclick=()=>{braking=true;playing=true;updateButtons()};
+$('release').onclick=()=>{braking=false;updateButtons()};
+$('absOn').onclick=()=>{abs=true;updateButtons()};
+$('absOff').onclick=()=>{abs=false;updateButtons()};
+$('play').onclick=()=>{playing=!playing;updateButtons()};
+$('surface').onchange=e=>{road=roadSurfaces[e.target.value];restartMotion();updateButtons()};
+$('force').oninput=e=>{force=Number(e.target.value)/100;$('forceOut').textContent=e.target.value+'%'};
+$('speed').oninput=e=>{selectedSpeed=Number(e.target.value);$('speedOut').textContent=selectedSpeed+' km/h';restartMotion()};
+$('restartSpeed').onclick=()=>{restartMotion();updateButtons()};
+$('clearGraph').onclick=clearSpeedGraph;
+$('reset').onclick=()=>{camera.position.set(15,11.2,20);controls.target.set(0,0,0);controls.update();braking=false;playing=false;restartMotion();updateButtons()};
+let boosterOpen=true;
+$('boosterView').onclick=()=>{
+ boosterOpen=!boosterOpen;
+ boosterUpperShell.visible=!boosterOpen;
+ $('boosterView').textContent=boosterOpen?'Booster: open':'Booster: closed';
+ $('boosterView').classList.toggle('active',boosterOpen);
+};
+$('xray').onchange=e=>{
+for(let o of cut){o.material=o.material.clone();o.material.transparent=e.target.checked;o.material.opacity=e.target.checked?.23:1;o.material.depthWrite=!e.target.checked}
+};
+const clock=new THREE.Clock();
+function animate(){
+requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.05);
+if(playing){
+  phase+=dt*3;
+  // Demand is proportional to applied pedal force. Tire/road adhesion imposes
+  // a peak limit; during lockup the available sliding friction is generally lower.
+  const speedBefore=vehicleSpeed;
+  const demand=12.0*force; // m/s² at full pedal, before the road grip limit
+  const peakDecel=road.peak*9.81;
+  const slideDecel=road.slide*9.81;
+  const lockDemand=braking&&!abs&&demand>peakDecel*1.035&&vehicleSpeed>2;
+  const wantsABS=braking&&abs&&demand>peakDecel*.92&&vehicleSpeed>5;
+  absRegulating=wantsABS;
+  if(braking){
+    brakingSeconds+=dt;
+    const lockedCount=wheelLocked.filter(Boolean).length;
+    // When every wheel locks, braking is limited by sliding rather than peak grip.
+    const effectiveGrip=lockedCount?peakDecel*(1-lockedCount/4)+slideDecel*(lockedCount/4):peakDecel;
+    const decel=abs ? Math.min(demand,peakDecel*(wantsABS?.92:1)) : Math.min(demand,effectiveGrip);
+    vehicleSpeed=Math.max(0,vehicleSpeed-decel*3.6*dt);
+    stoppingDistance+=(speedBefore+vehicleSpeed)/7.2*dt; // trapezoidal integral, km/h -> m/s
+  }else{
+    // Light illustrative throttle returns the car to the selected target speed.
+    vehicleSpeed=Math.min(selectedSpeed,vehicleSpeed+2.8*3.6*dt);
+  }
+  for(let i=0;i<4;i++){
+    if(!braking){
+      wheelLocked[i]=false;lockTimers[i]=0;
+      wheelSpeeds[i]+=(vehicleSpeed-wheelSpeeds[i])*(1-Math.exp(-12*dt));
+    }else if(abs){
+      wheelLocked[i]=false;lockTimers[i]=0;
+      // ABS cycling around the useful slip band; do not modulate if grip is sufficient.
+      const slip=wantsABS?(.14+.07*Math.sin(phase*7+wheelSlipPhase[i])):Math.min(.055,.03*force);
+      const target=vehicleSpeed*(1-slip);
+      wheelSpeeds[i]+=(target-wheelSpeeds[i])*(1-Math.exp(-(wantsABS?16:11)*dt));
+    }else if(lockDemand){
+      lockTimers[i]+=dt;
+      // Model sequential lockup over a fraction of a second at high demand.
+      const ramp=Math.max(0,1-lockTimers[i]/(.11+i*.012));
+      wheelSpeeds[i]=Math.min(wheelSpeeds[i],vehicleSpeed*ramp);
+      if(lockTimers[i]>=.11+i*.012){wheelLocked[i]=true;wheelSpeeds[i]=0;}
+    }else{
+      lockTimers[i]=0;wheelLocked[i]=false;
+      const slip=Math.min(.09,demand/Math.max(.1,peakDecel)*.055);
+      const target=vehicleSpeed*(1-slip);
+      wheelSpeeds[i]+=(target-wheelSpeeds[i])*(1-Math.exp(-14*dt));
+    }
+    wheelSpeeds[i]=Math.max(0,wheelSpeeds[i]);
+    if(vehicleSpeed<.1){wheelSpeeds[i]=0;wheelLocked[i]=false;lockTimers[i]=0;}
+    rotors[i].rotation.z+=dt*(wheelSpeeds[i]/3.6)/.30;
+  }
+  lockIndicator=braking&&!abs&&vehicleSpeed>2&&wheelLocked.some(Boolean);
+  graphSample(dt);
+}
+const absPulse=absRegulating&&braking?(Math.sin(phase*5)>-.15?1:.25):1;
+const masterPressure=braking?force:0; // pedal input stays steady during ABS cycling
+const pressure=masterPressure*absPulse; // downstream illustrative wheel-circuit modulation
+// Pedal, input rod, diaphragm and output rod respond only to driver input.
+// ABS may cycle downstream while these remain stationary under held pedal force.
+pedalPivot.rotation.z=masterPressure*.145;
+// Keep the linkage physically joined as the pedal swings and the booster rod travels.
+pedalPivot.updateWorldMatrix(true,false);
+pedalRodStart.set(-.32,-.55,0).applyMatrix4(pedalPivot.matrix);
+pedalRodEnd.set(-1.55+masterPressure*.13,.015,0);
+const rodDirection=pedalRodEnd.clone().sub(pedalRodStart);
+pedalInputRod.position.copy(pedalRodStart).add(pedalRodEnd).multiplyScalar(.5);
+pedalInputRod.quaternion.setFromUnitVectors(rodAxis,rodDirection.clone().normalize());
+pedalInputRod.scale.set(1,rodDirection.length(),1); // length along cylinder's LOCAL Y axis
+pedalRodEye.position.copy(pedalRodStart);
+boosterInputCoupler.position.x=-1.55+masterPressure*.13;
+boosterDiaphragm.position.x=masterPressure*.13;
+boosterSpring.scale.x=1-masterPressure*.24;
+// Master-cylinder primary/secondary pistons travel together under pedal force.
+masterPistons[0].position.x=-.09+masterPressure*.17;
+masterPistons[1].position.x=.74+masterPressure*.12;
+masterSprings[0].spring.scale.x=1-masterPressure*.22;
+masterSprings[1].spring.scale.x=1-masterPressure*.17;
+for(const [i,p] of masterPorts.entries()){
+  // Compensation ports are uncovered at rest and blocked by moving seals under masterPressure.
+  p.feed.material.opacity=masterPressure>.08?.18:.70;
+  p.indicator.material.opacity=masterPressure>.08?.16:.75;
+  p.indicator.position.y=.15+(masterPressure>.08?-.045:0);
+}
+for(const m of chamberMaterials)m.opacity=.12+masterPressure*.48;
+for(const w of wheelEnds){if(w.front){w.piston.position.z=-.27+pressure*.055;w.cal.position.z=-pressure*.035;w.inPad.position.z=-.235+pressure*.045;w.inPlate.position.z=-.269+pressure*.045;w.outPad.position.z=.155-pressure*.035;w.outPlate.position.z=.221-pressure*.035}else{
+  // Both shoe upper contact points follow an arc around the fixed lower pivots.
+  // Their lateral movement is 2 * 0.753 * sin(rotation), NOT an arbitrary stroke.
+  const shoeAngle=pressure*.042;
+  const shoeTravel=1.506*Math.sin(shoeAngle);
+  for(const shoe of w.shoes)shoe.group.rotation.z=-shoe.sign*shoeAngle;
+  for(const p of w.wheelPistons){
+    // The outward face of each .035-long pushrod head exactly meets the
+    // shoe's upper steel contact point at x = +/- (.337 + shoeTravel).
+    const headCenter=.337-.035/2+shoeTravel;
+    p.head.position.x=p.sign*headCenter;
+    // Keep the pushrod overlapping the moving head throughout travel.
+    p.pushrod.position.x=p.sign*(headCenter-.049);
+    // Flexible dust seals expand along the cylinder axis, remaining attached.
+    p.boot.position.x=p.sign*(.281+shoeTravel*.48);
+    p.boot.scale.x=1+shoeTravel*2.1;
+    p.outerSeal.scale.x=1+shoeTravel*.65;
+  }
+ }}
+// Each pair alternates through apply (inlet open, outlet closed), hold
+// (both closed) and release (inlet closed, outlet open). Conceptual cycle.
+const absCycle=absRegulating&&braking?Math.floor(phase*7)%3:0;
+for(const v of absValveStems){
+ const open=v.type===0?(absCycle===0):absCycle===2;
+ v.stem.position.z=v.baseZ-(open?.035:0);
+}
+for(let i=0;i<solenoids.length;i++) {
+ const v=absValveStems[i];
+ const open=v.type===0?(absCycle===0):absCycle===2;
+ solenoids[i].position.z=.53-(open?.035:0);
+}
+for(const a of absAccumulators)a.position.y=-.72+(absRegulating&&braking&&absCycle===2?.065:0);
+motorArmature.rotation.z=absRegulating&&braking?phase*12:0;
+for(let i=0;i<activePressure.length;i++){
+  const o=activePressure[i];
+  if(i<2){
+    // High-pressure master-cylinder supply lines remain blue for the entire
+    // pedal application, including all ABS hold/release phases.
+    o.visible=masterPressure>.03;
+    o.material.opacity=.46+masterPressure*.40;
+  }else{
+    o.visible=pressure>.03;
+    o.material.opacity=.08+pressure*.8;
+  }
+}
+
+const status=!playing?'Paused':lockIndicator?'WHEELS LOCKED — VEHICLE SKIDDING':braking?'Braking':vehicleSpeed<selectedSpeed-.5?'Accelerating to target':'Target speed';
+const slipWarning=lockIndicator?'<div style="color:#ff9a74;font-weight:800;border:1px solid #eb775a;padding:6px;margin:5px 0;border-radius:5px">⚠ WHEEL LOCKUP — WHEELS STOPPED, VEHICLE STILL MOVING / SKIDDING</div>':'';
+const wheelReadout=(i)=>`${wheelSpeeds[i].toFixed(1)}${wheelLocked[i]&&vehicleSpeed>2?' (LOCKED)':''}`;
+$('hud').innerHTML=`<b>${status}</b><div>Vehicle speed: ${vehicleSpeed.toFixed(1)} km/h</div><div>Target speed: ${selectedSpeed.toFixed(0)} km/h</div>${slipWarning}<div>LF / RF wheel: ${wheelReadout(0)} / ${wheelReadout(1)} km/h</div><div>LR / RR wheel: ${wheelReadout(2)} / ${wheelReadout(3)} km/h</div><div>Pedal: ${braking?'applied':'released'}</div><div>Road: ${road.name}</div><div>ABS: ${abs?'ON':'OFF'}${absRegulating?' · REGULATING':''}</div><div>Braking distance: ${stoppingDistance.toFixed(1)} m</div><div>Braking elapsed: ${brakingSeconds.toFixed(1)} s</div><div>Wheel-circuit pressure: ${Math.round(pressure*100)}% (illustrative)</div><div>Master-cylinder input: ${Math.round(masterPressure*100)}%</div><div>Master compensation ports: ${masterPressure>.08?'covered by piston seals':'open at rest'}</div><div>Booster diaphragm: ${braking?'assisting':'at rest'}</div><div>ABS valves: ${absRegulating&&braking?['apply · inlet open','hold · both closed','release · outlet open'][absCycle]:'normal · inlet open / outlet closed'}</div><div>ABS return pump: ${absRegulating&&braking?'running':'off'}</div>`;
+drawSpeedGraph();controls.update();renderer.render(scene,camera)}
+function resize(){const w=stage.clientWidth,h=stage.clientHeight;camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h,false)}
+window.addEventListener('resize',resize);resize();animate();
+</script></body></html>
