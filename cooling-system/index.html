@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cooling System Simulator | 2D Training Lab</title>
+<style>
+:root{font-family:Inter,'Segoe UI',system-ui,sans-serif;color:#e7f1fc;background:#071323;color-scheme:dark}*{box-sizing:border-box}body{margin:0}header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:16px 24px;border-bottom:1px solid #28435d;background:#0e2136}h1{font-size:21px;margin:0 0 4px}small,.muted{color:#a9c0d4}.topnote{font-size:12px;color:#bed1e0}.layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;min-height:80vh}.main{min-width:0;padding:14px 17px;background:#0a1728}.panel{border:1px solid #294660;border-radius:12px;background:#102339;overflow:hidden}.panelhead{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:10px 14px;background:#142e48;border-bottom:1px solid #274761}.panelhead h2{font-size:15px;margin:0}.tag{font-size:12px;color:#85d7fa}.diagram{width:100%;display:block;aspect-ratio:1200 / 670;background:#081728}svg text{font-family:Inter,Arial,sans-serif;user-select:none}.elementTitle{fill:#eff8ff;font-weight:700;font-size:19px}.sub{fill:#adcae1;font-size:13px}.minor{fill:#bdd0df;font-size:12px}.flowpath{fill:none;stroke-width:14;stroke-linecap:round;stroke-linejoin:round}.pipe{fill:none;stroke:#304c60;stroke-width:27;stroke-linecap:round;stroke-linejoin:round}.collar{fill:#9caebb;stroke:#294358;stroke-width:3}.flowpath.running{stroke-dasharray:22 13;animation:flow 1.1s linear infinite}@keyframes flow{to{stroke-dashoffset:-70}}.water{fill:#103c59;stroke:#477b9b;stroke-width:2}.readings{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px}.metric{border:1px solid #294a60;border-radius:9px;padding:12px;background:#13283d}.metric label{color:#aac6dc;font-size:12px;display:block}.metric strong{display:block;font-size:23px;margin:3px 0}.below{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(230px,.75fr);gap:12px;margin-top:12px}.graphwrap{padding:12px}.graph{width:100%;height:200px;display:block}.explain{padding:15px;font-size:13px;line-height:1.6;color:#c2d5e5}.explain strong{color:#fff}.legend{display:flex;gap:13px;flex-wrap:wrap;padding:10px 14px;border-top:1px solid #2c475c;font-size:12px;color:#bcd3e6}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px}.sidebar{border-left:1px solid #2b4359;background:#102137;padding:16px 18px;overflow:auto}.sidebar h2{font-size:15px;margin:5px 0 13px}.control{margin:15px 0}.control label{display:flex;justify-content:space-between;gap:12px;font-size:13px;margin-bottom:7px}.value{font-variant-numeric:tabular-nums;font-weight:700;color:#91e2ff}input[type=range]{width:100%;accent-color:#4fc2ff;cursor:pointer}select,button{background:#1d3e58;color:#edf7ff;border:1px solid #3a6685;border-radius:8px;padding:10px;font:inherit}select{width:100%;font-size:13px}button{cursor:pointer;font-size:13px;font-weight:650}button:hover{background:#2b5676}button.primary{background:#1382bb;border-color:#38b8f3}button.active{outline:2px solid #79ddff}.buttons{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:10px 0}.sep{border:0;border-top:1px solid #2e4b62;margin:19px 0}.guide{font-size:12px;color:#b1c9dc;line-height:1.55}.tempstrip{height:11px;border-radius:10px;background:linear-gradient(90deg,#1687ef 0%,#3ac9f3 30%,#6cce9c 48%,#ffc15a 70%,#fa5146 100%)}.tempmarks{display:flex;justify-content:space-between;font-size:10px;color:#a8c3d6;margin-top:5px}.alarm{color:#ffbbaa;font-weight:700}.hidden{display:none}footer{padding:13px 22px;background:#091625;color:#9bb4c7;font-size:11px;border-top:1px solid #253d50}.gaugeBox{padding:8px 12px 14px;text-align:center}.gaugeBox svg{display:block;width:min(100%,540px);margin:0 auto;max-height:252px}.gaugeSub{display:flex;justify-content:center;gap:26px;flex-wrap:wrap;margin:0 0 8px;font-size:13px;color:#bad2e3}.gaugeSub strong{color:#f2f9ff;font-variant-numeric:tabular-nums}.gaugeBox small{font-size:11px;line-height:1.5;display:block}@media(max-width:1050px){.layout{grid-template-columns:1fr}.sidebar{border-left:0;border-top:1px solid #2e4b62}.readings{grid-template-columns:repeat(2,1fr)}}@media(max-width:700px){.main{padding:7px}.below{grid-template-columns:1fr}.readings{gap:5px}.metric{padding:8px}.metric strong{font-size:18px}header{padding:12px}.diagram{min-width:610px}.diagramScroll{overflow-x:auto}}
+</style><style>
+.drivePanel{border:1px solid #35516b;border-radius:12px;background:#0d1d30;padding:13px;margin:10px 0 19px}.driveTitle{font-size:15px;font-weight:750;color:#e9f4ff}.driveMetrics{display:grid;grid-template-columns:1fr;gap:8px;margin:12px 0}.driveMetrics span{display:flex;justify-content:space-between;font-size:13px;color:#afc6d9;gap:10px}.driveMetrics strong{color:#fff;font-variant-numeric:tabular-nums}.scenarioBar{display:flex;justify-content:space-between;gap:10px;padding-top:9px;border-top:1px solid #29445c;color:#8fcee5;font-size:12px}
+
+.drivingToolbar{background:#112b42;border:1px solid #37617e;border-radius:12px;padding:14px 17px;margin-bottom:14px}
+.driveTop{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap}.driveTop h2{font-size:16px;margin:0 0 5px}.driveTop p{margin:0;color:#adc8de;font-size:12px}.driveSelect{min-width:245px;flex:1;max-width:370px}.driveSelect label{display:block;font-size:12px;color:#bcd6e8;margin-bottom:6px}.driveSelect select{width:100%}.driveReadout{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:10px 0;color:#b3cee1;font-size:12px}.driveReadout strong{color:#fff;font-size:14px}.driveReadout #drivePhase{color:#8ddcf8}.driveReadout #driveClock{margin-left:auto;color:#82a8be}.presetReadings{display:flex;flex-wrap:wrap;gap:10px}.presetReadings span{background:#0a1e30;border:1px solid #304d64;border-radius:7px;padding:7px 10px;font-size:12px;color:#c7dbec}.presetReadings strong{color:#fff;margin-left:6px;font-variant-numeric:tabular-nums}.customDriving{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;padding-top:8px}.customDriving[hidden],.presetReadings[hidden]{display:none}.customControl label{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:#bfd6e7;margin-bottom:7px}.customControl strong{color:#fff;font-variant-numeric:tabular-nums}.customControl input{width:100%}@media(max-width:760px){.customDriving{grid-template-columns:1fr}.driveSelect{max-width:none}.driveReadout #driveClock{margin-left:0}}
+</style><style>
+.compactGauge{display:flex;align-items:center;gap:12px;padding:7px 17px;margin-bottom:14px;min-height:154px;overflow:visible}
+.compactGaugeText{flex:0 0 164px;display:flex;flex-direction:column;gap:6px}
+.compactGaugeText strong{font-size:13px;letter-spacing:.09em;color:#e5eff9}
+.compactGaugeText span{font-size:11px;color:#95afc3}
+.compactGaugeDial{flex:0 0 310px;max-width:100%}
+.compactGaugeDial svg{display:block;width:100%;height:auto;max-height:156px}
+.compactGaugeReadouts{display:flex;flex-direction:column;gap:8px;min-width:180px;flex:1}
+.compactGaugeReadouts .gaugeSub{justify-content:flex-start;gap:9px;flex-direction:column;margin:0;font-size:12px}
+.compactGaugeAlert{color:#ff9d8c;font-weight:700;font-size:12px;min-height:16px}
+@media(max-width:900px){.compactGauge{flex-wrap:wrap;gap:6px}.compactGaugeText{flex:1 0 150px}.compactGaugeDial{flex:0 1 295px}.compactGaugeReadouts{min-width:150px}}
+@media(max-width:560px){.compactGaugeDial{flex-basis:100%;max-width:340px;margin:auto}.compactGaugeReadouts{flex-basis:100%}.compactGaugeReadouts .gaugeSub{flex-direction:row;flex-wrap:wrap}}
+</style>
+<style>
+/* V14: compact dashboard thermometer in the right-hand control panel. */
+.sidebar .compactGauge{
+  display:flex;flex-direction:column;align-items:center;gap:1px;
+  padding:8px 6px 7px;margin:9px 0 12px;min-height:0;
+  background:#0c1b2c;border-radius:12px;
+}
+.sidebar .compactGaugeText{flex:none;align-items:center;gap:0}
+.sidebar .compactGaugeText strong{font-size:11px;letter-spacing:.07em}
+.sidebar .compactGaugeText span{display:none}
+.sidebar .compactGaugeDial{flex:none;width:100%;max-width:260px}
+.sidebar .compactGaugeDial svg{width:100%;height:auto;max-height:124px}
+.sidebar .compactGaugeReadouts{flex:none;width:100%;min-width:0;gap:3px;align-items:center}
+.sidebar .compactGaugeReadouts .gaugeSub{
+  flex-direction:row;gap:8px;justify-content:center;flex-wrap:wrap;
+  font-size:10px;
+}
+.sidebar .compactGaugeAlert{font-size:10px;text-align:center;min-height:0}
+</style>
+</head>
+<body><header><div><h1>Cooling System Simulator <span style="font-size:12px;background:#245178;padding:4px 7px;border-radius:7px">2D · V15</span></h1><small>Automotive Training Lab · Temperature, thermostat and coolant circulation</small></div><span class="topnote">Self-contained SVG simulator · no 3D library required</span></header>
+<div class="layout"><div class="main">
+<section class="drivingToolbar" aria-label="Driving conditions and custom settings">
+  <div class="driveTop"><div><h2>Driving conditions</h2><p>Choose a driving preset or set your own speed, engine RPM and load.</p></div>
+  <div class="driveSelect"><label for="driveScenario">Driving mode</label><select id="driveScenario"><option value="highway">Highway cruise · 100 km/h</option><option value="city">In-town driving · around 50 km/h</option><option value="hill">Uphill climb · 50 → 25 km/h</option><option value="idle">Stopped / idling · 0 km/h</option><option value="custom">Custom driving conditions</option></select></div></div>
+  <div class="driveReadout"><strong id="driveTitle">Highway cruise</strong><span id="driveDescription">Steady highway travel with good airflow through the radiator.</span><span id="drivePhase">Steady cruise</span><span id="driveClock">0 s</span></div>
+  <div class="customDriving" id="customDriving" hidden>
+    <div class="customControl"><label for="customSpeed">Vehicle speed <strong id="speedValue">100 km/h</strong></label><input id="customSpeed" type="range" min="0" max="160" step="5" value="100"/></div>
+    <div class="customControl"><label for="customRpm">Engine RPM <strong id="rpmValue">2,250 RPM</strong></label><input id="customRpm" type="range" min="650" max="6000" step="50" value="2250"/></div>
+    <div class="customControl"><label for="customLoad">Engine load <strong id="loadValue">28%</strong></label><input id="customLoad" type="range" min="0" max="100" step="1" value="28"/></div>
+  </div>
+  <div class="presetReadings" id="presetReadings"><span>Vehicle speed <strong id="presetSpeed">100 km/h</strong></span><span>Engine RPM <strong id="presetRpm">2,250 RPM</strong></span><span>Engine load <strong id="presetLoad">28%</strong></span></div>
+  <input id="rpm" type="hidden" value="2250"/><input id="speed" type="hidden" value="100"/><input id="load" type="hidden" value="28"/>
+</section>
+
+
+<section class="panel"><div class="panelhead"><h2>Cooling-system flow diagram</h2><span class="tag" id="phase">Cold start · thermostat closed</span></div><div class="diagramScroll"><svg id="diagram" class="diagram" viewBox="0 0 1200 670" xmlns="http://www.w3.org/2000/svg" aria-label="Interactive cooling system diagram with pump, engine water jackets, thermostat, bypass, heater core and radiator">
+<defs><linearGradient id="blockMetal" x2="0.3" y2="1"><stop stop-color="#8a9ca9"/><stop offset=".48" stop-color="#5a7285"/><stop offset="1" stop-color="#293d4f"/></linearGradient><linearGradient id="radmetal" x2="1" y2="1"><stop stop-color="#738ca0"/><stop offset="1" stop-color="#2b455c"/></linearGradient><pattern id="grid" width="35" height="35" patternUnits="userSpaceOnUse"><path d="M35 0H0V35" fill="none" stroke="#24415b" stroke-width=".7" opacity=".32"/></pattern></defs>
+<rect width="1200" height="670" fill="#0a1b2b"/><rect width="1200" height="670" fill="url(#grid)"/>
+<!-- All connecting paths: behind components, with precisely identifiable endpoints -->
+<g id="pipes">
+<path class="pipe" d="M648 362 Q628 362 614 381 L591 405"/><!-- pump to block -->
+<path class="pipe" d="M585 258 L635 258 Q659 258 659 215 L659 174"/><!-- head to thermostat -->
+<path class="pipe" d="M724 152 L819 152 Q864 152 895 186 L938 213"/><!-- thermostat to upper radiator -->
+<path class="pipe" d="M941 487 Q836 503 780 451 Q752 424 739 383"/><!-- radiator to pump -->
+<path class="pipe" d="M716 191 Q781 237 786 293 Q791 328 740 348"/><!-- bypass -->
+<path class="pipe" d="M330 260 L278 260 Q247 255 247 228 L247 195"/><!-- head to heater -->
+<path class="pipe" d="M247 195 L247 146 L118 146"/><!-- engine hot heater flow continued -->
+<path class="pipe" d="M116 226 L100 267 Q91 310 123 342 L213 434 Q247 468 292 562 L605 562 Q686 558 686 413"/><!-- heater return -->
+</g>
+<!-- Coolant lines at same geometry as pipes; temperatures set dynamically -->
+<g id="coolantLines">
+<path id="engineFeed" class="flowpath running" d="M648 362 Q628 362 614 381 L591 405"/>
+<path id="headOutlet" class="flowpath running" d="M585 258 L635 258 Q659 258 659 215 L659 174"/>
+<path id="upperHose" class="flowpath running" d="M724 152 L819 152 Q864 152 895 186 L938 213"/>
+<path id="lowerHose" class="flowpath running" d="M941 487 Q836 503 780 451 Q752 424 739 383"/>
+<path id="bypassPath" class="flowpath running" d="M716 191 Q781 237 786 293 Q791 328 740 348"/>
+<path id="heaterHot" class="flowpath running" d="M330 260 L278 260 Q247 255 247 228 L247 146 L118 146"/>
+<path id="heaterCool" class="flowpath running" d="M116 226 L100 267 Q91 310 123 342 L213 434 Q247 468 292 562 L605 562 Q686 558 686 413"/>
+</g>
+<!-- radiator -->
+<g id="radiator"><rect x="916" y="202" width="135" height="286" rx="10" fill="#233d53" stroke="#91aabc" stroke-width="5"/><rect x="938" y="220" width="93" height="249" rx="4" fill="#21384d" stroke="#607e93" stroke-width="2"/>
+<g id="radTubes"></g><rect x="911" y="188" width="145" height="28" rx="8" fill="url(#radmetal)" stroke="#8497a7" stroke-width="3"/><rect x="911" y="475" width="145" height="28" rx="8" fill="url(#radmetal)" stroke="#8497a7" stroke-width="3"/>
+<circle cx="1002" cy="346" r="52" fill="#152e43" stroke="#66859d" stroke-width="7"/><g id="fanRotor"><g id="fanBlades"></g><circle r="14" fill="#7e9aa9" stroke="#c6d9e4" stroke-width="3"/></g><text x="987" y="534" class="elementTitle" text-anchor="middle">Radiator</text><text x="987" y="553" class="sub" text-anchor="middle">Airflow cools coolant</text></g>
+<!-- engine block -->
+<g id="engine">
+<path d="M322 304 L613 304 L613 455 L592 467 L576 499 L354 499 L340 461 L322 453Z" fill="url(#blockMetal)" stroke="#b1c3cf" stroke-width="5"/>
+<path d="M354 499 L576 499 L562 553 L371 553Z" fill="#263847" stroke="#859da9" stroke-width="4"/><path d="M365 514H570 M375 533H557" stroke="#53697a" stroke-width="4"/>
+<!-- machined head and head gasket -->
+<rect x="315" y="230" width="306" height="70" rx="8" fill="#6b8191" stroke="#c2d2da" stroke-width="5"/><rect x="308" y="214" width="322" height="19" rx="5" fill="#32495c" stroke="#a3b3be" stroke-width="3"/>
+<g id="jackets"></g><g id="pistons"></g>
+<path d="M331 296H605" stroke="#d3d8d8" stroke-width="4" stroke-dasharray="18 9"/>
+<text x="469" y="201" class="elementTitle" text-anchor="middle">Cylinder head</text><text x="468" y="578" class="elementTitle" text-anchor="middle">Inline-four engine block</text><text x="465" y="596" class="sub" text-anchor="middle">Water jackets around cylinder walls</text>
+</g>
+<!-- heater core -->
+<g id="heater"><rect x="66" y="117" width="121" height="134" rx="8" fill="#1a354b" stroke="#a6bcc9" stroke-width="4"/><g id="heaterTubes"></g><text x="123" y="92" class="elementTitle" text-anchor="middle">Heater core</text><text x="124" y="271" class="sub" text-anchor="middle">Cabin heat</text></g>
+<!-- thermostat external visual, transparent cross section -->
+<g id="thermostat"><rect x="637" y="120" width="93" height="82" rx="23" fill="#a9bdce" fill-opacity=".12" stroke="#9fb3c4" stroke-width="5"/><rect x="655" y="126" width="6" height="70" fill="#afc1cd"/><path d="M658 130H719" stroke="#5e8098" stroke-width="4"/><g id="valveMove"><rect x="674" y="123" width="10" height="75" rx="4" fill="#cdb36a"/><rect x="663" y="133" width="29" height="12" rx="4" fill="#f6cf77" stroke="#fff0bc" stroke-width="2"/><path id="thermoSpring" d="M675 171 L684 176 L675 181 L684 186 L675 191 L684 196" stroke="#d6e3e9" stroke-width="3.5" fill="none"/></g><circle cx="705" cy="171" r="13" fill="#a98246" stroke="#f3cc78" stroke-width="2"/><text x="688" y="94" class="elementTitle" text-anchor="middle">Thermostat</text><text id="valveText" x="684" y="224" class="sub" text-anchor="middle">CLOSED</text></g>
+<!-- Water pump mounted at the upper block/front timing-cover area just below the cylinder head.
+     The inlet takes the lower radiator hose and heater/bypass return; the outlet feeds the engine jacket. -->
+<g id="pump">
+  <path d="M625 322 L663 312 L724 313 L750 335 L746 390 L721 413 L658 414 L628 395Z" fill="#344e63" stroke="#a8bcc9" stroke-width="5"/>
+  <path d="M627 343 L607 343 L595 358 L608 383 L628 384" fill="#617d8b" stroke="#a9bdc6" stroke-width="3"/>
+  <circle cx="690" cy="363" r="47" fill="#243e54" stroke="#a2b9c6" stroke-width="5"/>
+  <circle cx="690" cy="363" r="37" fill="#2c5a74" stroke="#6fb5d0" stroke-width="3"/>
+  <g id="impeller"><g id="impellerBlades"></g><circle r="10" fill="#a0b7c2" stroke="#e2e9ed" stroke-width="3"/></g>
+  <circle cx="647" cy="332" r="4" fill="#d5e5ee"/><circle cx="729" cy="335" r="4" fill="#d5e5ee"/>
+  <circle cx="647" cy="394" r="4" fill="#d5e5ee"/><circle cx="728" cy="396" r="4" fill="#d5e5ee"/>
+  <text x="692" y="449" class="elementTitle" text-anchor="middle">Water pump</text>
+  <text x="692" y="468" class="sub" text-anchor="middle">Impeller / front cover</text>
+</g>
+<!-- Labels for paths -->
+<text x="820" y="129" class="sub">HOT OUTLET → RADIATOR</text><text x="811" y="567" class="sub">← COOL RETURN</text><text x="755" y="329" class="sub">Bypass</text><text x="103" y="363" class="sub">Heater return</text>
+<!-- active flow particles -->
+<g id="particles" pointer-events="none"></g>
+<!-- corner bar -->
+<rect x="30" y="610" width="296" height="38" rx="9" fill="#132e47" stroke="#2c6a89"/><text id="flowStatus" x="47" y="634" style="fill:#dbf4ff;font-size:15px;font-weight:700">Bypass open · radiator restricted</text>
+</svg></div>
+<div class="legend"><span><i class="dot" style="background:#2385f8"></i> Cooler coolant</span><span><i class="dot" style="background:#45d9dd"></i> Warming</span><span><i class="dot" style="background:#f5af43"></i> Warm</span><span><i class="dot" style="background:#ff5e43"></i> Hot coolant</span><span>Dashed flow moves toward the next component</span></div></section>
+<div id="coolantWarning" class="alarm hidden" role="status" style="margin-top:10px;padding:12px 16px;border:1px solid #ff7063;border-radius:9px;background:#401a24"></div><div class="readings"><div class="metric"><label>Engine coolant</label><strong id="engineValue">20°C</strong><small id="engineState">Cold</small></div><div class="metric"><label>Upper radiator hose</label><strong id="upperValue">20°C</strong><small>Engine outlet</small></div><div class="metric"><label>Lower radiator hose</label><strong id="lowerValue">20°C</strong><small>Radiator outlet</small></div><div class="metric"><label>Thermostat opening</label><strong id="openingValue">0%</strong><small id="valveState">Valve closed</small></div></div>
+
+</div>
+<aside class="sidebar"><h2>Temperature demonstration</h2><div class="control"><label for="tempSlider"><span>Set engine temperature</span><span class="value" id="tempLabel">20°C</span></label><input id="tempSlider" type="range" min="0" max="125" value="20" step="1"/></div>
+<section class="panel compactGauge" aria-label="Live dashboard engine temperature gauge">
+  <div class="compactGaugeText"><strong>ENGINE TEMPERATURE</strong><span>Live dashboard gauge</span></div>
+  <div class="compactGaugeDial"><svg id="tempGauge" viewBox="0 0 540 260" role="img" aria-label="Automotive coolant temperature gauge, cold to hot, with moving needle">
+    <defs>
+      <radialGradient id="dialFace"><stop offset="0%" stop-color="#23354a"/><stop offset="75%" stop-color="#0b1522"/><stop offset="100%" stop-color="#02070c"/></radialGradient>
+      <linearGradient id="steelRim" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9eafbe"/><stop offset=".25" stop-color="#3e596c"/><stop offset=".58" stop-color="#b1c7d1"/><stop offset="1" stop-color="#2d4255"/></linearGradient>
+      <filter id="needleGlow"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    </defs>
+    <ellipse cx="270" cy="144" rx="239" ry="111" fill="#03090f" stroke="url(#steelRim)" stroke-width="9"/>
+    <ellipse cx="270" cy="144" rx="225" ry="99" fill="url(#dialFace)" stroke="#314a5a" stroke-width="2"/>
+    <path d="M110 181 A171 171 0 0 1 430 181" stroke="#1f4055" fill="none" stroke-width="11" stroke-linecap="round"/>
+    <path d="M110 181 A171 171 0 0 1 150 102" stroke="#35a5f0" fill="none" stroke-width="7" stroke-linecap="round"/>
+    
+    <g id="gaugeTicks"></g><path id="hotZoneArc" fill="none" stroke="#f1463e" stroke-width="10" stroke-linecap="round"/><path id="dangerZoneArc" fill="none" stroke="#ff2424" stroke-width="11" stroke-linecap="round"/>
+    
+    <text x="125" y="190" font-size="25" font-weight="700" fill="#68c4ff" text-anchor="middle">C</text>
+    <text x="414" y="190" font-size="25" font-weight="700" fill="#ff7864" text-anchor="middle">H</text>
+    <text x="270" y="92" text-anchor="middle" font-size="15" fill="#c7d4dd" letter-spacing="3">COOLANT TEMP</text>
+    <text id="gaugeDigital" x="270" y="124" text-anchor="middle" font-size="30" font-weight="700" fill="#f3f8fc">20°C</text>
+    
+    <g id="gaugeNeedle" transform="rotate(-78 270 208)">
+      <path d="M270 222 L265 202 L270 71 L275 202 L270 222" fill="#ff653f" stroke="#ffb38b" stroke-width="1" filter="url(#needleGlow)"/>
+    </g>
+    <circle cx="270" cy="208" r="15" fill="#293d4e" stroke="#a7bbc8" stroke-width="4"/>
+    <circle cx="270" cy="208" r="5.5" fill="#d3e6ee"/>
+    <path d="M227 236 H313" stroke="#30495b" stroke-width="2"/>
+  </svg></div>
+  <div class="compactGaugeReadouts"><div class="gaugeSub"><span><i class="dot" style="background:#f47b53"></i>Radiator inlet <strong id="gaugeUpper">20°C</strong></span><span><i class="dot" style="background:#45baff"></i>Radiator outlet <strong id="gaugeLower">20°C</strong></span></div><div id="gaugeAlert" class="compactGaugeAlert" role="status"></div></div>
+</section>
+<div class="buttons"><button id="manual">Manual temperature demo</button><button id="auto" class="active primary">Automatic regulation</button></div><p class="guide">Automatic regulation is the normal driving lesson: temperature rises from cold, the thermostat starts opening near 82°C (80–84°C nominal) and is fully open by 95°C, while a healthy engine remains in the 82–104°C operating range. Select a fault to see how warm-up and overheating change. Manual temperature demo is an override for inspecting thermostat movement; use Automatic regulation to test faults.</p>
+<hr class="sep"><h2>Operating controls</h2><div class="control"><label>Outside temperature <span class="value" id="ambientValue">20°C</span></label><input id="ambient" type="range" min="-25" max="45" step="5" value="20"/></div><div class="control"><label>Radiator fan</label><select id="fanSelect"><option value="auto">Automatic</option><option value="on">Force ON</option><option value="off">Force OFF</option></select></div><div class="control"><label>Cabin heater</label><select id="heaterSelect"><option value="off">Off</option><option value="low">Low</option><option value="high">High</option></select></div>
+<hr class="sep"><h2>Diagnostic fault</h2><div class="control"><select id="fault"><option value="none">Normal operation</option><option value="closed">Thermostat stuck closed</option><option value="open">Thermostat stuck open</option><option value="pump">Water pump failure</option><option value="fan">Cooling fan inoperative</option><option value="radiator">Restricted radiator</option><option value="low">Low coolant / air pockets</option></select></div><p id="faultText" class="guide">No fault selected.</p>
+<hr class="sep"><h2>Simulation</h2><div class="buttons"><button id="playPause">Pause</button><button id="reset">Reset cold start</button></div></aside></div><footer>Automotive Training Lab · 2D educational simulation. Engine overheat, fan and pressure responses are conceptual; always use vehicle-specific procedures for real diagnostics.</footer>
+<script>
+'use strict';
+const $=id=>document.getElementById(id), SVGNS='http://www.w3.org/2000/svg';
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),lerp=(a,b,t)=>a+(b-a)*t;
+const state={manual:false,running:true,temp:20,radOut:20,radIn:20,elapsed:0,particleTime:0,fanStage:0,fanAngle:0,fanSpin:0,driveElapsed:0};
+// Driving presets replace the individual RPM, speed, and load sliders.
+// Scenarios modify the same values used by the existing thermal and airflow simulation.
+const drivingScenarios={
+  highway:{title:'Highway cruise',description:'Steady 100 km/h cruising: low load and strong road airflow through the radiator.'},
+  city:{title:'In-town driving',description:'Repeated moderate acceleration, cruising and slowing near 50 km/h. RPM and engine load vary with traffic.'},
+  hill:{title:'Uphill climb',description:'A sustained climb: speed falls from 50 to 25 km/h while RPM and engine load remain high.'},
+  idle:{title:'Stopped / idling',description:'Vehicle stationary with low engine load and no ram airflow; the electric fan must cool the radiator.'},
+  custom:{title:'Custom driving conditions',description:'Adjust the speed, RPM and engine load using the sliders above the model.'}
+};
+function setDrivingScenario(key){
+  $('driveScenario').value=key;
+  state.driveElapsed=0;
+  $('driveTitle').textContent=drivingScenarios[key].title;
+  $('driveDescription').textContent=drivingScenarios[key].description;
+  $('customDriving').hidden=key!=='custom';
+  $('presetReadings').hidden=key==='custom';
+  updateDrivingScenario();
+}
+function updateDrivingScenario(){
+  const key=$('driveScenario').value,t=state.driveElapsed;
+  let rpm,speed,load,phase;
+  if(key==='highway'){
+    speed=100;rpm=2250;load=28;phase='Steady highway cruise';
+  }else if(key==='city'){
+    // Repeat a 40-second city cycle: brake, accelerate, cruise, then slow again.
+    const c=t%40;
+    if(c<9){const f=c/9; speed=35+18*f;rpm=1350+1250*f;load=30+24*f;phase='Accelerating through traffic'}
+    else if(c<22){speed=53+3*Math.sin((c-9)*.75);rpm=2100+260*Math.sin((c-9)*.9);load=29+9*Math.sin((c-9)*.5);phase='Cruising around 50 km/h'}
+    else if(c<32){const f=(c-22)/10;speed=53-19*f;rpm=2100-850*f;load=18-6*f;phase='Slowing for traffic'}
+    else {const f=(c-32)/8;speed=34+f;rpm=1250+130*f;load=14+5*f;phase='Slow traffic'}
+  }else if(key==='hill'){
+    const f=clamp(t/50,0,1);
+    speed=50-25*f;rpm=3400+650*f+120*Math.sin(t*.22);load=78+14*f;phase=f<1?'Climbing · speed falling':'Sustained steep climb · 25 km/h';
+  }else if(key==='custom'){
+    speed=+$('customSpeed').value;rpm=+$('customRpm').value;load=+$('customLoad').value;phase='Custom settings · steady conditions';
+  }else{
+    speed=0;rpm=800;load=14;phase='Idling · no road airflow';
+  }
+  $('rpm').value=Math.round(rpm);
+  $('speed').value=Math.round(speed);
+  $('load').value=Math.round(load);
+  $('presetSpeed').textContent=Math.round(speed)+' km/h';
+  $('presetRpm').textContent=Math.round(rpm).toLocaleString()+' RPM';
+  $('presetLoad').textContent=Math.round(load)+'%';
+  $('drivePhase').textContent=phase;
+  $('driveClock').textContent=Math.floor(t)+' s';
+}
+$('driveScenario').addEventListener('change',e=>setDrivingScenario(e.target.value));
+for(const id of ['customSpeed','customRpm','customLoad'])$(id).addEventListener('input',()=>{if($('driveScenario').value==='custom')updateDrivingScenario()});
+const paths=['engineFeed','headOutlet','upperHose','lowerHose','bypassPath','heaterHot','heaterCool'];
+const partInfo={engineFeed:{temp:()=>state.radOut,rate:()=>pumpFraction()},headOutlet:{temp:()=>state.temp,rate:()=>pumpFraction()},upperHose:{temp:()=>state.radIn,rate:()=>pumpFraction()*opening()},lowerHose:{temp:()=>state.radOut,rate:()=>pumpFraction()*opening()},bypassPath:{temp:()=>state.temp,rate:()=>pumpFraction()*(1-opening())},heaterHot:{temp:()=>state.temp,rate:()=>pumpFraction()*.72},heaterCool:{temp:()=>state.temp-(heaterOn()?9:2),rate:()=>pumpFraction()*.72}};
+const faultNotes={none:'No fault selected.',closed:'Thermostat remains closed even above its opening temperature: radiator flow is blocked.',open:'Thermostat remains open when cold: coolant warms more slowly.',pump:'Pump impeller ineffective: circulation is severely reduced.',fan:'Electric fan does not operate when requested.',radiator:'Internal radiator restriction reduces coolant flow and heat exchange.',low:'Low coolant and air pockets cause irregular flow and reduced heat transfer.'};
+function v(id){return +$(id).value}function opening(){const f=$('fault').value;if(f==='closed')return 0;if(f==='open')return 1;return clamp((state.temp-82)/13,0,1)}
+function pumpFraction(){const f=$('fault').value;return f==='pump'?.06:f==='low'?.36:clamp(.27+v('rpm')/6000*.72,.2,1)}
+function heaterOn(){return $('heaterSelect').value!=='off'}
+// Temperature-controlled two-stage electric fan. Hysteresis prevents hunting.
+// Fan HIGH begins at 105°C to help avoid the 110°C overheating threshold.
+function fanStage(){
+  const selected=$('fanSelect').value;
+  const t=state.temp;
+  if(state.fanStage===0){if(t>=96)state.fanStage=1;}
+  else if(state.fanStage===1){
+    if(t>=105)state.fanStage=2;
+    else if(t<=92)state.fanStage=0;
+  }else{
+    if(t<=103)state.fanStage=1;
+  }
+  if($('fault').value==='fan'||selected==='off')return 0;
+  if(selected==='on')return 2; // Manual override runs at high speed.
+  return state.fanStage;
+}
+function fanOn(){return fanStage()>0}
+function coolantColor(t){const stops=[[0,[23,125,240]],[35,[38,199,241]],[65,[93,218,157]],[89,[245,178,69]],[115,[246,72,56]],[130,[225,40,61]]];for(let i=0;i<stops.length-1;i++){if(t<=stops[i+1][0]){const a=stops[i],b=stops[i+1],u=clamp((t-a[0])/(b[0]-a[0]),0,1);return 'rgb('+a[1].map((x,j)=>Math.round(lerp(x,b[1][j],u))).join(',')+')'}}return 'rgb(225,40,61)'}
+// The radiator and heater temperatures are simplified, but cooling is reduced when flow/airflow fail.
+function calculateTemps(){const o=opening(),air=Math.max(0,v('speed'))/140,fan=fanStage();const efficiency=clamp(.12+.58*air+(fan===2?.28:fan===1?.13:0),0,1),restriction=$('fault').value==='radiator'?.4:1;const drop=o>0.001?(4+Math.max(0,state.temp-v('ambient'))*.26*efficiency*restriction):0;state.radIn=lerp(v('ambient'),state.temp,clamp(o*9,0,1));state.radOut=lerp(v('ambient'),Math.max(v('ambient'),state.temp-drop),clamp(o*9,0,1));if(o<.01){state.radIn=lerp(state.radIn,v('ambient'),.90);state.radOut=lerp(state.radOut,v('ambient'),.90)} }
+function autoStep(dt){
+  // Conceptual heat balance, tuned to settle naturally within the 82–104°C range at normal loads.
+  // Heat generation depends on engine work; pump failure does NOT lower engine heat.
+  const ambient=v('ambient'), rpm=v('rpm'), load=v('load')/100;
+  const f=$('fault').value, flow=pumpFraction(), o=opening();
+  const delta=Math.max(0,state.temp-ambient);
+  const heat=2.5+0.7*rpm/5500+1.3*load;
+  const ambientLoss=0.014*delta;
+  const fan=fanStage();
+  const ramAir=clamp(v('speed')/140,0,1);
+  const radiatorEffectiveness=0.03+0.15*ramAir+(fan===2?0.075:fan===1?0.035:0);
+  const restriction=f==='radiator'?.24:1;
+  const fluidFactor=f==='low'?.36:1;
+  const radiatorLoss=delta*o*flow*radiatorEffectiveness*restriction*fluidFactor;
+  const heaterLoss=heaterOn()?delta*($('heaterSelect').value==='high'?.012:.005)*Math.max(.25,flow):0;
+  // Poor circulation and air pockets cause extra localized heating even while
+  // the thermostat senses imperfect or delayed coolant temperature.
+  const hotSpot=f==='pump'?1.15:f==='low'?.65:0;
+  const netHeat=heat+hotSpot-ambientLoss-radiatorLoss-heaterLoss;
+  // Thermal inertia: the engine and coolant mass cool more slowly than a
+  // simple instantaneous radiator efficiency calculation would suggest.
+  const dT=netHeat*dt*0.055*(netHeat<0?0.60:1);
+  state.temp=clamp(state.temp+dT,ambient,135);
+}
+
+// Build explanatory engine section with water jackets tightly surrounding four cylinder liners.
+const jackets=$('jackets'),pistons=$('pistons');for(let i=0;i<4;i++){const x=354+i*70;const j=document.createElementNS(SVGNS,'rect');j.setAttribute('x',x-14);j.setAttribute('y',306);j.setAttribute('width',62);j.setAttribute('height',158);j.setAttribute('rx',20);j.setAttribute('fill','#4fbdda');j.setAttribute('fill-opacity','.18');j.setAttribute('stroke','#73d5f5');j.setAttribute('stroke-width','3');jackets.appendChild(j);const c=document.createElementNS(SVGNS,'rect');c.setAttribute('x',x);c.setAttribute('y',315);c.setAttribute('width',34);c.setAttribute('height',132);c.setAttribute('rx',13);c.setAttribute('fill','#142c3e');c.setAttribute('stroke','#d5dde2');c.setAttribute('stroke-width','5');jackets.appendChild(c);const piston=document.createElementNS(SVGNS,'rect');piston.setAttribute('x',x+3);piston.setAttribute('y',375);piston.setAttribute('width',28);piston.setAttribute('height',23);piston.setAttribute('rx',3);piston.setAttribute('fill','#b8cad2');piston.setAttribute('stroke','#eef6f7');piston.setAttribute('stroke-width','2');piston.dataset.index=i;pistons.appendChild(piston);for(let k=0;k<3;k++){const gap=document.createElementNS(SVGNS,'rect');gap.setAttribute('x',x-9+(k%2)*44);gap.setAttribute('y',245+k*13);gap.setAttribute('width',10);gap.setAttribute('height',8);gap.setAttribute('rx',3);gap.setAttribute('fill','#5bd8ef');gap.setAttribute('fill-opacity','.65');jackets.appendChild(gap)}}
+const radTubes=$('radTubes');for(let i=0;i<10;i++){const l=document.createElementNS(SVGNS,'line');l.setAttribute('x1',943+i*9);l.setAttribute('x2',943+i*9);l.setAttribute('y1',220);l.setAttribute('y2',466);l.setAttribute('stroke','#5b8fa5');l.setAttribute('stroke-width','3');radTubes.appendChild(l)}const heaterTubes=$('heaterTubes');for(let i=0;i<8;i++){const l=document.createElementNS(SVGNS,'line');l.setAttribute('x1',82+i*12);l.setAttribute('x2',82+i*12);l.setAttribute('y1',126);l.setAttribute('y2',240);l.setAttribute('stroke','#87b4c8');l.setAttribute('stroke-width','5');heaterTubes.appendChild(l)}
+const impeller=$('impellerBlades'),fanBlades=$('fanBlades');for(let i=0;i<6;i++){const blade=document.createElementNS(SVGNS,'path');blade.setAttribute('d','M0 -10 Q20 -22 33 -3 Q16 7 5 7Z');blade.setAttribute('fill','#b0d0dd');blade.setAttribute('transform','rotate('+(i*60)+')');impeller.appendChild(blade)}for(let i=0;i<7;i++){const blade=document.createElementNS(SVGNS,'path');blade.setAttribute('d','M4 -11 Q19 -43 37 -28 Q40 -12 14 6Z');blade.setAttribute('fill','#7f9fb3');blade.setAttribute('stroke','#c1d1db');blade.setAttribute('stroke-width','1.5');blade.setAttribute('transform','rotate('+(i*360/7)+')');fanBlades.appendChild(blade)}$('fanRotor').setAttribute('transform','translate(1002 346)');
+const pGroup=$('particles');const particles=[];for(const key of paths){for(let i=0;i<8;i++){const e=document.createElementNS(SVGNS,'circle');e.setAttribute('r',i%3===0?'4.5':'3.3');e.setAttribute('opacity','.85');pGroup.appendChild(e);particles.push({key,offset:i/8,el:e})}}
+function updateUI(){const o=opening();calculateTemps();let mode=o<.03?'COLD / BYPASS':o>.97?'THERMOSTAT OPEN':'THERMOSTAT OPENING';if($('fault').value==='closed')mode='FAULT · THERMOSTAT CLOSED';if($('fault').value==='open')mode='FAULT · THERMOSTAT OPEN';$('phase').textContent=mode;$('valveText').textContent=o<.03?'CLOSED':o>.97?'FULL OPEN':Math.round(o*100)+'% OPEN';$('valveMove').setAttribute('transform','translate('+(o*13)+',0)');$('thermoSpring').setAttribute('d','M675 171 L'+(684-o*4)+' 176 L675 181 L'+(684-o*4)+' 186 L675 191 L'+(684-o*4)+' 196');updateGauge();$('engineValue').textContent=Math.round(state.temp)+'°C';$('upperValue').textContent=Math.round(state.radIn)+'°C';$('lowerValue').textContent=Math.round(state.radOut)+'°C';$('openingValue').textContent=Math.round(o*100)+'%';$('engineState').textContent=state.temp<82?'Warming up':state.temp>=116?'ENGINE DAMAGE RISK':state.temp>=110?'OVERHEATING WARNING':state.temp<=104?'Normal operating temperature':'High temperature · fan HIGH';$('engineState').className=state.temp>=110?'alarm':'';const alarm=$('coolantWarning');alarm.classList.toggle('hidden',state.temp<110);alarm.textContent=state.temp>=116?'ENGINE DAMAGE RISK — 116°C or higher':state.temp>=110?'OVERHEATING WARNING — Coolant temperature 110°C or higher':'';$('valveState').textContent=o===0?'Valve closed':o===1?'Valve fully open':'Valve moving';$('tempLabel').textContent=Math.round(state.temp)+'°C';if(!state.manual)$('tempSlider').value=Math.round(state.temp);$('rpmValue').textContent=v('rpm').toLocaleString()+' RPM';$('speedValue').textContent=v('speed')+' km/h';$('loadValue').textContent=v('load')+'%';$('ambientValue').textContent=v('ambient')+'°C';const fanLevel=fanStage(),fanActive=fanLevel>0,fanMode=$('fanSelect').value,speed=v('speed');const airflow=speed<25?'LOW':speed<60?'MODERATE':'HIGH';const fanReason=$('fault').value==='fan'?'FAULT — fan inoperative':fanMode==='on'?'Forced HIGH':fanMode==='off'?'Forced OFF':fanLevel===2?'High demand · 105°C on / 103°C downshift':fanLevel===1?'Low demand · 96°C on / 92°C off':'Waiting for coolant temperature';$('faultText').textContent=faultNotes[$('fault').value];$('flowStatus').textContent=o<.03?'BYPASS FLOW · RADIATOR RESTRICTED':o>.97?'RADIATOR OPEN · BYPASS RESTRICTED':'RADIATOR '+Math.round(o*100)+'% · BYPASS '+Math.round((1-o)*100)+'%';
+for(const [id,info] of Object.entries(partInfo)){const el=$(id),rate=info.rate();el.setAttribute('stroke',coolantColor(info.temp()));el.setAttribute('opacity',clamp(rate*.85+.08,.07,1));el.style.animationDuration=(1.7-Math.min(1,rate)*1.25)+'s';el.style.animationPlayState=state.running?'running':'paused';el.style.strokeDashoffset=String(-state.particleTime*rate*80)}
+for(const p of particles){const {el,key,offset}=p,path=$(key),info=partInfo[key],rate=info.rate();if(rate<.07){el.setAttribute('display','none');continue}el.removeAttribute('display');let length=path.getTotalLength();const pos=path.getPointAtLength(((offset+state.particleTime*.28*rate)%1)*length);el.setAttribute('cx',pos.x);el.setAttribute('cy',pos.y);el.setAttribute('fill',coolantColor(info.temp()));el.setAttribute('opacity',clamp(rate*1.25,.2,1))}
+const heaterT=heaterOn()?state.temp-12:state.temp-4;radTubes.setAttribute('stroke',coolantColor(state.radOut));for(const n of radTubes.children){n.setAttribute('stroke',coolantColor(lerp(state.radIn,state.radOut,(+n.getAttribute('x1')-943)/90)))}for(const n of heaterTubes.children)n.setAttribute('stroke',coolantColor(lerp(state.temp,heaterT,(+n.getAttribute('x1')-82)/90)));jackets.setAttribute('opacity',1);$('impeller').setAttribute('transform','translate(690 363) rotate('+(state.particleTime*300*pumpFraction())+')');$('fanRotor').setAttribute('transform','translate(1002 346) rotate('+state.fanAngle+')');for(const piston of pistons.children){if(piston.hasAttribute('data-index')){const k=+piston.dataset.index;piston.setAttribute('y',375+21*Math.sin(state.particleTime*5+k*Math.PI))}}
+}
+let last=performance.now();function frame(now){const realDt=Math.min(.1,(now-last)/1000);last=now;if(state.running){const dt=realDt;if(!state.manual)autoStep(dt*20);state.elapsed+=dt*20;state.particleTime+=dt;state.driveElapsed+=dt*20;updateDrivingScenario();const target=fanStage()===2?1:fanStage()===1?.48:0;state.fanSpin+=(target-state.fanSpin)*Math.min(1,dt*(target?2.2:1.6));state.fanAngle=(state.fanAngle+state.fanSpin*550*dt)%360;}updateUI();requestAnimationFrame(frame)}
+// Build realistic illuminated dial tick marks once, then update the needle every frame.
+const gaugeTicks=$('gaugeTicks');
+for(let i=0;i<=12;i++){
+  const a=(-160+i*140/12)*Math.PI/180;
+  const cx=270,cy=208,inner=i%3===0?144:153,outer=160;
+  const line=document.createElementNS(SVGNS,'line');
+  line.setAttribute('x1',cx+inner*Math.cos(a));line.setAttribute('y1',cy+inner*Math.sin(a));
+  line.setAttribute('x2',cx+outer*Math.cos(a));line.setAttribute('y2',cy+outer*Math.sin(a));
+  line.setAttribute('stroke',i>=11?'#ff856e':'#cbdce8');line.setAttribute('stroke-width',i%3===0?'3':'1.5');
+  gaugeTicks.appendChild(line);
+}
+// Vehicle gauge calibration: the wide 82–104°C normal band stays central;
+// 110°C enters the red warning, and 116°C reaches the severe red sector.
+function gaugeAngle(t){
+ const anchors=[[0,-78],[82,-18],[93,0],[104,18],[110,49],[116,72],[125,78]];
+ t=clamp(t,0,125);
+ for(let i=0;i<anchors.length-1;i++){
+  if(t<=anchors[i+1][0]){
+   const a=anchors[i],b=anchors[i+1];return lerp(a[1],b[1],(t-a[0])/(b[0]-a[0]));
+  }
+ }
+ return 78;
+}
+function gaugeArc(t0,t1,r){
+ const pts=[];
+ for(let t=t0;t<=t1;t+=.5){
+  const a=(gaugeAngle(t)-90)*Math.PI/180;
+  pts.push([270+r*Math.cos(a),208+r*Math.sin(a)]);
+ }
+ const a=(gaugeAngle(t1)-90)*Math.PI/180;
+ pts.push([270+r*Math.cos(a),208+r*Math.sin(a)]);
+ return pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(2)+' '+p[1].toFixed(2)).join(' ');
+}
+$('hotZoneArc').setAttribute('d',gaugeArc(110,116,160));
+$('dangerZoneArc').setAttribute('d',gaugeArc(116,125,160));
+function updateGauge(){
+ const t=state.temp;
+ $('gaugeNeedle').setAttribute('transform','rotate('+gaugeAngle(t)+' 270 208)');
+ $('gaugeDigital').textContent=Math.round(t)+'°C';
+ $('gaugeDigital').setAttribute('fill',t>=110?'#ff7563':'#f3f8fc');
+ $('gaugeAlert').textContent=t>=116?'ENGINE DAMAGE RISK':t>=110?'ENGINE OVERHEATING':t>104?'HIGH TEMP — FAN HIGH':'';
+ $('gaugeUpper').textContent=Math.round(state.radIn)+'°C';
+ $('gaugeLower').textContent=Math.round(state.radOut)+'°C';
+}
+
+function setManual(t){state.manual=true;state.temp=+t;$('tempSlider').value=t;$('manual').classList.add('active','primary');$('auto').classList.remove('active','primary')}
+$('tempSlider').addEventListener('input',e=>setManual(e.target.value));$('manual').onclick=()=>setManual($('tempSlider').value);$('auto').onclick=()=>{state.manual=false;$('manual').classList.remove('active','primary');$('auto').classList.add('active','primary')};$('fault').onchange=()=>{$('auto').click()};$('playPause').onclick=()=>{state.running=!state.running;$('playPause').textContent=state.running?'Pause':'Resume'};$('reset').onclick=()=>{state.temp=20;state.elapsed=0;state.radIn=20;state.radOut=20;state.fanStage=0;state.fanSpin=0;state.fanAngle=0;setDrivingScenario($('driveScenario').value);$('fault').value='none';state.running=true;$('playPause').textContent='Pause';$('auto').click()};setDrivingScenario('highway');calculateTemps();updateUI();requestAnimationFrame(frame);
+</script></body></html>
