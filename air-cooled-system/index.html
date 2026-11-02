@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Air-Cooled Engine Simulator V5 | Automotive Training Lab</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,system-ui,Segoe UI,Arial,sans-serif;color:#e6f0fb;background:#091522}*{box-sizing:border-box}body{margin:0}header{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:15px 22px;background:#10253b;border-bottom:1px solid #33526b}h1{font-size:21px;margin:0 0 5px}header small{color:#a6c7dd}a{color:#7dd8fa}.layout{display:grid;grid-template-columns:minmax(0,1fr) 318px;min-height:75vh}.main{min-width:0;padding:16px}.side{padding:17px;border-left:1px solid #32516a;background:#11263b}.panel{background:#10243a;border:1px solid #31516b;border-radius:13px;overflow:hidden;margin-bottom:14px}.ph{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#173650;border-bottom:1px solid #32516a;padding:12px 15px}.ph strong{font-size:15px}.ph span{font-size:12px;color:#a6c6da}.inside{padding:13px 15px}.driving{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.driving>label{font-weight:700}.driving select{min-width:230px;flex:1}.custom{display:grid;grid-template-columns:repeat(3,minmax(150px,1fr));gap:14px;margin-top:13px}.hidden{display:none!important}.sliderline{display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px;color:#cbdbea}input[type=range]{width:100%;accent-color:#42b9f2}select,button{background:#234862;color:#eff8ff;border:1px solid #47718c;border-radius:9px;padding:10px 11px;font:inherit}button{cursor:pointer;font-weight:700}button:hover{background:#2b627f}button.selected{border-color:#6de0fa;background:#0d719c}.btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.field{margin:12px 0}.field>label{display:block;font-size:13px;color:#c9d9ea;margin-bottom:5px}.field select{width:100%}.readouts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:12px 0}.stat{padding:10px;background:#112d45;border:1px solid #35526c;border-radius:9px}.stat small{font-size:11px;color:#9fc2d6}.stat b{display:block;font-size:21px;margin-top:4px}.stat em{font-size:11px;color:#a4d6e3;font-style:normal}.diagram{display:block;width:100%;height:auto;background:radial-gradient(ellipse at 50% 28%,#1b3e53,#091928 79%);}.sysfoot{padding:9px 15px;font-size:12px;color:#b5cbda;border-top:1px solid #31516b;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}.gauge{width:100%;max-width:260px;margin:6px auto 8px;display:block}.gaugetext{text-align:center;font-size:13px;color:#b4d4e9}.faultnote{font-size:12px;color:#b9c9dd;line-height:1.5}.pill{border:1px solid #456079;border-radius:20px;padding:4px 9px;color:#bfe0f3;font-size:12px}.alert{color:#ff9e89!important}.airpath{fill:none;stroke:#4fd5cf;stroke-width:8;stroke-linecap:round;stroke-dasharray:17 25;opacity:.86}.duct{fill:#d3dce2;fill-opacity:.11;stroke:#9cbacb;stroke-width:13;stroke-linejoin:round;stroke-linecap:round}.fins{stroke:#a9c8d8;stroke-width:4;opacity:.84}.headfins{stroke:#b9d5df;stroke-width:5}.outline{stroke:#b7c9d1;stroke-width:4}.labeltxt{font-size:17px;fill:#d1e6ef;font-weight:700}.subtxt{font-size:13px;fill:#a9c8db}.airfade{font-size:14px;fill:#7ef8d7}.dialmark{stroke:#d6ecfa;stroke-width:3}.tiny{font-size:11px;fill:#b6cddb}@keyframes airdash{to{stroke-dashoffset:-42}}@media(max-width:1000px){.layout{grid-template-columns:1fr}.side{border-left:0;border-top:1px solid #36516c}.custom{grid-template-columns:1fr}.readouts{grid-template-columns:repeat(2,1fr)}}@media(max-width:540px){header{padding:12px}.main{padding:8px}.readouts{gap:5px}.stat b{font-size:17px}}
+.oilbands{display:grid;grid-template-columns:1fr 1fr;gap:6px 9px;font-size:11px;color:#c9d9e9;margin:4px auto 8px;max-width:290px}.oilbands span{display:flex;align-items:center;gap:5px}.oilbands i{width:11px;height:11px;border-radius:3px;display:inline-block;flex:none}
+/* V9: make physical cooling-fin edges and the recessed air gaps legible. */
+.fins{stroke:#263e4c;stroke-width:5;opacity:1}
+.headfins{stroke:#213746;stroke-width:6;opacity:1}
+.finRidges{fill:none;stroke:#e2f0ed;stroke-width:2.7;stroke-linecap:round;opacity:.98;pointer-events:none}
+.headFinRidges{fill:none;stroke:#e8f0eb;stroke-width:3.2;stroke-linecap:round;opacity:1;pointer-events:none}
+.finEndTips{fill:none;stroke:#cedde2;stroke-width:3.2;opacity:.95;pointer-events:none}
+</style></head><body>
+<header><div><h1>Air-Cooled Engine Simulator</h1><small>Automotive Training Lab · 2D air circulation and thermal fault diagnosis</small></div><span class="pill">Opposed-cylinder, engine-driven fan example</span></header>
+<div class="layout"><main class="main">
+<section class="panel"><div class="ph"><strong>Driving conditions</strong><span>Preset scenario or custom values</span></div><div class="inside"><div class="driving"><label for="scenario">Driving scenario</label><select id="scenario"><option value="highway">Highway cruise · 100 km/h</option><option value="city">City driving · longer 50–60 km/h cruises, traffic stops</option><option value="hill">Uphill climb · 50 to 25 km/h</option><option value="idle">Stationary idle · 0 km/h</option><option value="custom">Custom driving conditions</option></select></div><div class="custom hidden" id="customCtrls"><div><div class="sliderline"><span>Vehicle speed</span><b id="customSpeedText">50 km/h</b></div><input id="customSpeed" type="range" min="0" max="160" step="5" value="50"></div><div><div class="sliderline"><span>Engine RPM</span><b id="customRpmText">2,000</b></div><input id="customRpm" type="range" min="650" max="5500" step="50" value="2000"></div><div><div class="sliderline"><span>Engine load</span><b id="customLoadText">40%</b></div><input id="customLoad" type="range" min="5" max="100" step="5" value="40"></div></div></div></section>
+<div class="readouts"><div class="stat"><small>Vehicle speed</small><b id="vSpeed">100</b><em>km/h</em></div><div class="stat"><small>Engine RPM</small><b id="rpmRead">2,250</b><em>fan is mechanically driven</em></div><div class="stat"><small>Engine load</small><b id="loadRead">28%</b><em>heat generation demand</em></div><div class="stat"><small>Engine oil temperature</small><b id="tempRead">22°C</b><em id="tempStatus">Oil warming</em></div></div>
+<section class="panel"><div class="ph"><strong>Air-cooled engine bay · close-fitting cooling tin</strong><span>Fan draws air in → formed shrouds → between cooling fins → lower outlet</span></div>
+<svg class="diagram" id="engineSvg" viewBox="0 0 1050 640" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Cutaway engine bay revealing a mechanically driven intake fan and enclosed duct branches directing forced air over opposed cylinder heads">
+<defs><linearGradient id="coolfin" x1="0" x2="1"><stop offset="0" stop-color="#668a9d"/><stop offset=".5" stop-color="#bdd0d7"/><stop offset="1" stop-color="#638599"/></linearGradient><linearGradient id="blockgrad" x1="0" x2="0" y1="0" y2="1"><stop stop-color="#64879c"/><stop offset="1" stop-color="#2c5166"/></linearGradient><radialGradient id="fanlight"><stop stop-color="#ffe4a4"/><stop offset="1" stop-color="#e7a844"/></radialGradient><filter id="glow"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<!-- Cutaway engine-bay surround, rear bulkhead and service aperture -->
+<g id="engineBay">
+ <path d="M42 105 Q47 65 88 57 L963 57 Q1005 67 1009 114 L1009 565 Q998 599 963 604 L91 604 Q46 590 42 554Z"
+   fill="#24374a" fill-opacity=".67" stroke="#748da0" stroke-width="12"/>
+ <path d="M65 124 L65 553 Q72 576 103 579 L946 579 Q984 573 986 543 L986 124"
+   fill="none" stroke="#101f30" stroke-width="20"/>
+ <path d="M70 113 L977 113" stroke="#98a9b7" stroke-width="9" opacity=".75"/>
+ <path d="M75 114 L75 550 M974 114 L974 550" stroke="#435b70" stroke-width="9"/>
+ <rect x="82" y="70" width="885" height="48" rx="11" fill="#192f40" stroke="#647e90" stroke-width="4"/>
+ <path d="M104 92 L944 92" stroke="#c5d4da" stroke-width="3" opacity=".35"/>
+ <g fill="#c1d0d8" stroke="#314657" stroke-width="2">
+  <circle cx="103" cy="118" r="7"/><circle cx="952" cy="118" r="7"/>
+  <circle cx="102" cy="550" r="7"/><circle cx="951" cy="550" r="7"/>
+ </g>
+ <path d="M111 579 L111 606 L227 606 L227 582 M827 582 L827 606 L942 606 L942 579"
+   fill="none" stroke="#8b9dad" stroke-width="12" stroke-linejoin="round"/>
+</g>
+<!-- cast-metal opposed engine and central crankcase -->
+<path d="M442 330 Q475 312 480 336 L480 524 Q450 546 435 528 L435 343Z" fill="#5b798e" stroke="#9fbac7" stroke-width="4"/>
+<path d="M601 340 L618 329 L618 525 L591 540 Z" fill="#52798c" stroke="#9fbac7" stroke-width="4"/>
+<path d="M458 365 Q500 341 594 364 L602 530 Q514 559 451 530Z" fill="url(#blockgrad)" stroke="#abc5d1" stroke-width="5"/>
+<path d="M465 538 L598 538 L575 586 L482 586Z" fill="#294459" stroke="#92aebe" stroke-width="4"/><path d="M488 585 L567 585" stroke="#d0dbe2" stroke-width="9"/>
+<!-- finned horizontal cylinders -->
+<rect id="leftCyl" x="275" y="367" width="181" height="121" rx="12" fill="url(#coolfin)" stroke="#7998a7" stroke-width="5"/>
+<rect id="rightCyl" x="603" y="367" width="181" height="121" rx="12" fill="url(#coolfin)" stroke="#7998a7" stroke-width="5"/>
+<g class="fins"><path d="M 275 371 V 487" /><path d="M 284 371 V 487" /><path d="M 293 371 V 487" /><path d="M 302 371 V 487" /><path d="M 311 371 V 487" /><path d="M 320 371 V 487" /><path d="M 329 371 V 487" /><path d="M 338 371 V 487" /><path d="M 347 371 V 487" /><path d="M 356 371 V 487" /><path d="M 365 371 V 487" /><path d="M 374 371 V 487" /><path d="M 383 371 V 487" /><path d="M 392 371 V 487" /><path d="M 401 371 V 487" /><path d="M 410 371 V 487" /><path d="M 419 371 V 487" /><path d="M 428 371 V 487" /><path d="M 437 371 V 487" /><path d="M 446 371 V 487" /></g><g class="fins"><path d="M 610 371 V 487" /><path d="M 619 371 V 487" /><path d="M 628 371 V 487" /><path d="M 637 371 V 487" /><path d="M 646 371 V 487" /><path d="M 655 371 V 487" /><path d="M 664 371 V 487" /><path d="M 673 371 V 487" /><path d="M 682 371 V 487" /><path d="M 691 371 V 487" /><path d="M 700 371 V 487" /><path d="M 709 371 V 487" /><path d="M 718 371 V 487" /><path d="M 727 371 V 487" /><path d="M 736 371 V 487" /><path d="M 745 371 V 487" /><path d="M 754 371 V 487" /><path d="M 763 371 V 487" /><path d="M 772 371 V 487" /><path d="M 781 371 V 487" /></g>
+<!-- Fin-edge highlights over contrasting recesses. Each narrow bright edge
+     represents the lip of a cast cooling fin; dark lines show air passages. -->
+<g class="finRidges"><path d="M277 373 V485"/><path d="M286 373 V485"/><path d="M295 373 V485"/><path d="M304 373 V485"/><path d="M313 373 V485"/><path d="M322 373 V485"/><path d="M331 373 V485"/><path d="M340 373 V485"/><path d="M349 373 V485"/><path d="M358 373 V485"/><path d="M367 373 V485"/><path d="M376 373 V485"/><path d="M385 373 V485"/><path d="M394 373 V485"/><path d="M403 373 V485"/><path d="M412 373 V485"/><path d="M421 373 V485"/><path d="M430 373 V485"/><path d="M439 373 V485"/><path d="M448 373 V485"/><path d="M612 373 V485"/><path d="M621 373 V485"/><path d="M630 373 V485"/><path d="M639 373 V485"/><path d="M648 373 V485"/><path d="M657 373 V485"/><path d="M666 373 V485"/><path d="M675 373 V485"/><path d="M684 373 V485"/><path d="M693 373 V485"/><path d="M702 373 V485"/><path d="M711 373 V485"/><path d="M720 373 V485"/><path d="M729 373 V485"/><path d="M738 373 V485"/><path d="M747 373 V485"/><path d="M756 373 V485"/><path d="M765 373 V485"/><path d="M774 373 V485"/><path d="M783 373 V485"/></g>
+<g class="finEndTips"><path d="M275 366 V374 M275 483 V491"/><path d="M284 366 V374 M284 483 V491"/><path d="M293 366 V374 M293 483 V491"/><path d="M302 366 V374 M302 483 V491"/><path d="M311 366 V374 M311 483 V491"/><path d="M320 366 V374 M320 483 V491"/><path d="M329 366 V374 M329 483 V491"/><path d="M338 366 V374 M338 483 V491"/><path d="M347 366 V374 M347 483 V491"/><path d="M356 366 V374 M356 483 V491"/><path d="M365 366 V374 M365 483 V491"/><path d="M374 366 V374 M374 483 V491"/><path d="M383 366 V374 M383 483 V491"/><path d="M392 366 V374 M392 483 V491"/><path d="M401 366 V374 M401 483 V491"/><path d="M410 366 V374 M410 483 V491"/><path d="M419 366 V374 M419 483 V491"/><path d="M428 366 V374 M428 483 V491"/><path d="M437 366 V374 M437 483 V491"/><path d="M446 366 V374 M446 483 V491"/><path d="M610 366 V374 M610 483 V491"/><path d="M619 366 V374 M619 483 V491"/><path d="M628 366 V374 M628 483 V491"/><path d="M637 366 V374 M637 483 V491"/><path d="M646 366 V374 M646 483 V491"/><path d="M655 366 V374 M655 483 V491"/><path d="M664 366 V374 M664 483 V491"/><path d="M673 366 V374 M673 483 V491"/><path d="M682 366 V374 M682 483 V491"/><path d="M691 366 V374 M691 483 V491"/><path d="M700 366 V374 M700 483 V491"/><path d="M709 366 V374 M709 483 V491"/><path d="M718 366 V374 M718 483 V491"/><path d="M727 366 V374 M727 483 V491"/><path d="M736 366 V374 M736 483 V491"/><path d="M745 366 V374 M745 483 V491"/><path d="M754 366 V374 M754 483 V491"/><path d="M763 366 V374 M763 483 V491"/><path d="M772 366 V374 M772 483 V491"/><path d="M781 366 V374 M781 483 V491"/></g>
+<!-- heads and fin stack at the outboard sides -->
+<rect id="leftHead" x="193" y="345" width="83" height="165" rx="11" fill="#718fa2" stroke="#c1d0d9" stroke-width="6"/>
+<rect id="rightHead" x="784" y="345" width="83" height="165" rx="11" fill="#718fa2" stroke="#c1d0d9" stroke-width="6"/>
+<g class="headfins"><path d="M 200 340 V 501" /><path d="M 210 340 V 501" /><path d="M 220 340 V 501" /><path d="M 230 340 V 501" /><path d="M 240 340 V 501" /><path d="M 250 340 V 501" /><path d="M 260 340 V 501" /><path d="M 270 340 V 501" /><path d="M 792 340 V 501" /><path d="M 802 340 V 501" /><path d="M 812 340 V 501" /><path d="M 822 340 V 501" /><path d="M 832 340 V 501" /><path d="M 842 340 V 501" /><path d="M 852 340 V 501" /><path d="M 862 340 V 501" /></g>
+<!-- Cylinder-head fin lips are thicker than barrel fins. -->
+<g class="headFinRidges"><path d="M202.5 346 V497"/><path d="M212.5 346 V497"/><path d="M222.5 346 V497"/><path d="M232.5 346 V497"/><path d="M242.5 346 V497"/><path d="M252.5 346 V497"/><path d="M262.5 346 V497"/><path d="M272.5 346 V497"/><path d="M794.5 346 V497"/><path d="M804.5 346 V497"/><path d="M814.5 346 V497"/><path d="M824.5 346 V497"/><path d="M834.5 346 V497"/><path d="M844.5 346 V497"/><path d="M854.5 346 V497"/><path d="M864.5 346 V497"/></g>
+<g class="finEndTips"><path d="M200 340 V348 M200 496 V504"/><path d="M210 340 V348 M210 496 V504"/><path d="M220 340 V348 M220 496 V504"/><path d="M230 340 V348 M230 496 V504"/><path d="M240 340 V348 M240 496 V504"/><path d="M250 340 V348 M250 496 V504"/><path d="M260 340 V348 M260 496 V504"/><path d="M270 340 V348 M270 496 V504"/><path d="M792 340 V348 M792 496 V504"/><path d="M802 340 V348 M802 496 V504"/><path d="M812 340 V348 M812 496 V504"/><path d="M822 340 V348 M822 496 V504"/><path d="M832 340 V348 M832 496 V504"/><path d="M842 340 V348 M842 496 V504"/><path d="M852 340 V348 M852 496 V504"/><path d="M862 340 V348 M862 496 V504"/></g>
+<path d="M204 371 Q186 385 187 456 Q188 484 204 490 M855 371 Q873 385 873 456 Q872 484 855 490" fill="none" stroke="#d5e1e5" stroke-width="8"/>
+<!-- spark plugs -->
+<path d="M225 344 L211 321" stroke="#f8ede0" stroke-width="8"/><path d="M822 344 L838 321" stroke="#f8ede0" stroke-width="8"/>
+<path d="M212 320 L201 307 M838 320 L851 307" stroke="#e7bf68" stroke-width="10"/>
+<!-- V3: formed sheet-metal cooling tin, closely wrapped over the cylinder banks.
+     The top covers are semi-transparent for the teaching cutaway; the lower
+     skirts fit the heads, so air is driven BETWEEN fins instead of around them. -->
+<g id="coolingTin">
+ <!-- Air distributors connect directly to the centrifugal fan outlet and sweep
+      down over the cylinder fins rather than forming oversized external tubes. -->
+ <path d="M428 242 Q387 255 344 286 L218 306 Q176 321 166 354
+          L170 477 L190 493 L206 486 L207 368 Q230 342 289 342
+          L413 342 Q447 322 466 285 Z"
+       fill="#718b9c" fill-opacity=".24" stroke="#b0c4cc" stroke-width="7" stroke-linejoin="round"/>
+ <path d="M631 242 Q674 254 718 286 L845 306 Q884 323 895 354
+          L892 478 L871 492 L854 486 L853 369 Q829 343 773 342
+          L648 342 Q614 322 597 285 Z"
+       fill="#718b9c" fill-opacity=".24" stroke="#b0c4cc" stroke-width="7" stroke-linejoin="round"/>
+ <!-- Close-to-fin crown ducts over the top of the heads and cylinders -->
+ <path d="M198 322 Q200 305 222 305 L438 305 L457 348 L442 362
+          L276 355 L197 367Z"
+       fill="#7794a2" fill-opacity=".18" stroke="#c0d1d8" stroke-width="5"/>
+ <path d="M860 322 Q856 305 837 305 L620 305 L604 349 L620 362
+          L785 355 L860 367Z"
+       fill="#7794a2" fill-opacity=".18" stroke="#c0d1d8" stroke-width="5"/>
+ <!-- Shrouds wrap the outside head and have a downward hot-air outlet -->
+ <path d="M183 350 L183 500 Q186 513 206 517 L271 517 L284 505"
+       fill="none" stroke="#8ea5b1" stroke-width="11" stroke-linecap="round"/>
+ <path d="M876 350 L876 500 Q872 513 855 517 L788 517 L775 505"
+       fill="none" stroke="#8ea5b1" stroke-width="11" stroke-linecap="round"/>
+ <!-- Pressed-metal panel seams and captive fasteners -->
+ <path d="M225 321 L417 322 M831 321 L639 322" stroke="#d6e4e9" stroke-width="3" opacity=".8"/>
+ <g fill="#d5e0e4" stroke="#344b5c" stroke-width="2">
+  <circle cx="211" cy="326" r="5"/><circle cx="419" cy="326" r="5"/>
+  <circle cx="845" cy="326" r="5"/><circle cx="639" cy="326" r="5"/>
+  <circle cx="185" cy="465" r="5"/><circle cx="875" cy="465" r="5"/>
+ </g>
+ <!-- Fan outlet transition feeds the left/right sheet-metal ducts -->
+ <path d="M434 270 Q466 302 526 308 Q596 306 632 270 L619 323
+          Q562 344 527 344 Q484 344 448 323Z"
+       fill="#627e90" fill-opacity=".30" stroke="#bdced5" stroke-width="5"/>
+</g>
+<!-- V7 internal distribution vanes, pressurized plenum and underside deflectors. -->
+<g id="distributionVanes" fill="none" stroke-linecap="round" stroke-linejoin="round">
+ <path d="M457 294 Q401 307 328 322 M602 294 Q665 308 740 322"
+       stroke="#d8e0e0" stroke-width="11" opacity=".89"/>
+ <path d="M446 307 Q383 335 362 355 M613 307 Q682 333 705 355"
+       stroke="#abc0c9" stroke-width="7" opacity=".90"/>
+ <path d="M438 331 Q366 337 284 342 M619 331 Q694 337 777 342"
+       stroke="#dce5e7" stroke-width="5" opacity=".7"/>
+</g>
+<!-- Upper cooling-flap vanes shown in an open warm-engine position.
+     Actual VW thermostatically driven flaps vary by model/year. -->
+<g id="coolingFlaps" fill="#95b0bc" stroke="#e0e7e9" stroke-width="3">
+ <path d="M304 336 L364 354 L371 344 L308 323Z"/>
+ <path d="M754 336 L691 354 L683 343 L750 323Z"/>
+ <circle cx="308" cy="331" r="7"/><circle cx="751" cy="331" r="7"/>
+</g>
+<!-- Small lower cylinder deflectors guide air around the lower barrel halves. -->
+<g id="lowerDeflectors" fill="#728d9c" fill-opacity=".72" stroke="#d7e3e8" stroke-width="5" stroke-linejoin="round">
+ <path d="M281 467 Q342 495 438 469 L438 485 Q358 525 280 491Z"/>
+ <path d="M781 467 Q720 495 622 469 L622 485 Q703 525 782 491Z"/>
+ <path d="M194 488 Q225 522 271 502 L282 516 Q225 550 188 517Z"/>
+ <path d="M864 488 Q830 521 789 502 L775 516 Q831 552 870 517Z"/>
+</g>
+<g id="missingTinAir" style="display:none" fill="none" stroke="#ffb061" stroke-width="10" stroke-linecap="round" stroke-dasharray="18 18" opacity=".94">
+ <path d="M313 363 Q285 403 301 449 Q337 470 367 458"/>
+ <path d="M746 363 Q771 405 753 449 Q726 470 692 458"/>
+ <path d="M278 461 Q302 474 290 517 L267 552"/>
+ <path d="M781 461 Q753 475 768 520 L796 555"/>
+</g>
+<g id="airDistributionText" font-size="12" font-weight="700" fill="#dbedf2">
+ <text x="204" y="289">HEAD AIR ~2/3</text><text x="686" y="289">HEAD AIR ~2/3</text>
+ <text x="300" y="401" text-anchor="middle">BARREL ~1/3</text>
+ <text x="734" y="401" text-anchor="middle">BARREL ~1/3</text>
+</g>
+<!-- fan -->
+<g transform="translate(533 189)"><circle r="117" fill="#193d52" stroke="#a8c7d0" stroke-width="10"/><g id="fanRotor" fill="url(#fanlight)" stroke="#a7792d" stroke-width="2"><path d="M 0 -31 C 18 -77 52 -106 74 -89 C 88 -75 36 -42 12 -10 Z" transform="rotate(0)" /><path d="M 0 -31 C 18 -77 52 -106 74 -89 C 88 -75 36 -42 12 -10 Z" transform="rotate(45)" /><path d="M 0 -31 C 18 -77 52 -106 74 -89 C 88 -75 36 -42 12 -10 Z" transform="rotate(90)" /><path d="M 0 -31 C 18 -77 52 -106 74 -89 C 88 -75 36 -42 12 -10 Z" transform="rotate(135)" /><path d="M 0 -31 C 18 -77 52 -106 74 -89 C 88 -75 36 -42 12 -10 Z" transform="rotate(180)" /><path d="M 0 -31 C 18 -77 52 -106 74 -89 C 88 -75 36 -42 12 -10 Z" transform="rotate(225)" /><path d="M 0 -31 C 18 -77 52 -106 74 -89 C 88 -75 36 -42 12 -10 Z" transform="rotate(270)" /><path d="M 0 -31 C 18 -77 52 -106 74 -89 C 88 -75 36 -42 12 -10 Z" transform="rotate(315)" /></g><circle r="41" fill="#b9a15e" stroke="#fce2a0" stroke-width="5"/><circle r="13" fill="#516a74" stroke="#ead4aa" stroke-width="4"/></g>
+<!-- Top air intake and fan opening. Grille remains static while impeller spins. -->
+<g id="fanIntake">
+ <path d="M429 64 Q451 42 525 41 Q598 42 623 64 L613 94 Q567 79 526 79 Q472 79 438 94Z"
+   fill="#1c2d3a" stroke="#94abb9" stroke-width="6"/>
+ <g stroke="#728fa0" stroke-width="6">
+  <path d="M460 56 L459 85 M480 49 L480 80 M500 47 L500 78 M522 46 L522 78 M544 47 L544 78 M566 49 L567 81 M587 55 L588 85"/>
+ </g>
+ <circle cx="533" cy="189" r="122" fill="none" stroke="#c5d0d4" stroke-width="5" stroke-dasharray="5 18" opacity=".7"/>
+ <g fill="#d5dbd8" stroke="#4b6171" stroke-width="2">
+  <circle cx="533" cy="66" r="6"/><circle cx="410" cy="189" r="6"/>
+  <circle cx="656" cy="189" r="6"/><circle cx="533" cy="312" r="6"/>
+ </g>
+
+
+</g>
+<!-- routes across both head groups -->
+<path id="intakeAir" class="airpath" style="stroke:#4bb8ff" d="M533 76 L533 107 L533 133"/>
+<path id="leftAir" class="airpath" d="M445 270 Q419 314 360 329 L255 329 Q214 344 221 391 L221 469"/>
+<path id="rightAir" class="airpath" d="M622 270 Q647 314 708 329 L802 329 Q838 347 830 391 L830 469"/>
+<!-- Relative visual flow split: broad head jet versus narrow barrel jet on each bank.
+     2:1 is an instructional approximation, not manufacturer measured data. -->
+<g id="branchAir" fill="none" stroke-linecap="round" stroke-dasharray="14 25">
+ <path id="leftHeadJet" d="M440 304 Q332 304 248 329 Q222 367 229 414 L231 482" stroke="#4fdacb" stroke-width="10"/>
+ <path id="rightHeadJet" d="M619 304 Q732 304 814 330 Q840 365 830 414 L826 482" stroke="#4fdacb" stroke-width="10"/>
+ <path id="leftBarrelJet" d="M438 316 Q396 332 357 352 Q342 398 353 456 L371 493" stroke="#6ad4f0" stroke-width="5"/>
+ <path id="rightBarrelJet" d="M621 316 Q664 332 701 352 Q716 395 707 457 L686 493" stroke="#6ad4f0" stroke-width="5"/>
+ <!-- Hot cylinder air wraps under the barrel and exits DOWNWARD. The
+      old paths doubled back toward the heads and falsely implied recirculation. -->
+ <path id="leftWrapAir" d="M353 455 Q359 483 392 491 Q406 502 386 513 Q346 533 305 544 L289 567" stroke="#ffc16c" stroke-width="5"/>
+ <path id="rightWrapAir" d="M708 455 Q700 483 667 491 Q653 502 673 513 Q712 533 755 544 L772 567" stroke="#ffc16c" stroke-width="5"/>
+</g>
+<!-- Airflow through fin passages moves downward: cool at the crown,
+     warmed after picking up heat, then discharged below the engine. -->
+<g id="throughFins" fill="none" stroke-linecap="round" stroke-width="5" stroke-dasharray="9 14">
+ <path d="M312 362 V490 M347 362 V490 M382 362 V490 M417 362 V490
+          M644 362 V490 M679 362 V490 M714 362 V490 M749 362 V490"
+       stroke="#42c8e5" opacity=".7"/>
+ <path d="M244 364 V490 M816 364 V490" stroke="#ffb16a" opacity=".83"/>
+</g>
+<path id="leftExhaustAir" class="airpath" style="stroke:#ff9a64" d="M221 481 Q222 516 200 535 Q176 551 162 574"/>
+<path id="rightExhaustAir" class="airpath" style="stroke:#ff9a64" d="M831 481 Q832 516 856 535 Q882 551 895 574"/>
+<g id="dirtyMarks" style="display:none" fill="#684831" opacity=".90"><path d="M202 386 l25 -8 18 19 -16 22 -26 -8z M210 446 l28 -9 21 19 -16 26 -28 -7z M825 373 l26 -13 9 34 -17 23 -27 -12z M812 447 l25 -4 18 19 -17 22 -31 -11z"/><circle cx="244" cy="435" r="17"/><circle cx="816" cy="425" r="18"/></g>
+<path id="ductLeak" style="display:none" d="M815 198 L846 173 L850 198 M826 193 Q878 159 906 117" fill="none" stroke="#ffae66" stroke-width="9" stroke-dasharray="12 10"/>
+<g fill="#d3e5ed" font-size="15" font-weight="700"><text x="525" y="34" text-anchor="middle">COOLING AIR IN</text><text x="123" y="571">HEATED AIR EXIT</text><text x="800" y="570">HEATED AIR EXIT</text><text x="533" y="620" text-anchor="middle">CRANKCASE / OIL SUMP</text></g>
+<g class="subtxt"><text x="185" y="330" text-anchor="middle">LEFT HEAD</text><text x="874" y="330" text-anchor="middle">RIGHT HEAD</text></g>
+</svg>
+<div class="sysfoot"><span id="flowDescription">Engine-driven fan forces air through the cylinder and head fin passages.</span><span id="faultFlag">Normal airflow</span></div></section>
+<section class="panel"><div class="ph"><strong>How cooling air is distributed</strong><span>Cooler intake → heated discharge</span></div><div class="inside" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><div style="flex:1;min-width:140px;height:10px;border-radius:20px;background:linear-gradient(90deg,#46b8ff,#4dd4b7,#ffe180,#ff6851)"></div><div style="font-size:12px;color:#a9cde0">Blue = incoming air · Wider teal stream = head share (~2/3) · Narrower blue stream = cylinder share (~1/3) · Orange = heated discharge</div></div></section>
+</main><aside class="side">
+<section class="panel"><div class="ph"><strong>Engine oil temperature</strong><span>Calibrated teaching bands · °C</span></div><div class="inside"><svg class="gauge" viewBox="0 0 300 188" role="img" aria-label="Air cooled engine oil temperature gauge with optimal warm caution and danger bands"><g id="gaugeBands"></g><g stroke="#a9d7e7" stroke-width="3"><path d="M36 151 L55 151"/><path d="M69 64 L83 78"/><path d="M150 33 L150 53"/><path d="M231 64 L217 78"/><path d="M264 151 L245 151"/></g><text x="25" y="174" fill="#7acbff" font-size="15">C</text><text x="265" y="174" fill="#ff8077" font-size="15">H</text><g id="needle" transform="rotate(-105 150 151)"><path d="M145 155 L150 53 L155 155" fill="#ffb45f" stroke="#f5d4ab" stroke-width="2"/></g><circle cx="150" cy="151" r="12" fill="#d6e3e8"/><circle cx="150" cy="151" r="5" fill="#455a6e"/><text id="gaugeValue" x="150" y="111" text-anchor="middle" font-size="30" font-weight="700" fill="#f3f8fb">22°C</text><text x="150" y="130" text-anchor="middle" font-size="11" fill="#abc9dc">ENGINE OIL</text></svg><div class="oilbands" aria-label="Oil temperature operating bands"><span><i style="background:#40d7aa"></i>82–104° Optimal</span><span><i style="background:#ffc55e"></i>105–113° Warm</span><span><i style="background:#fa974e"></i>114–120° Caution</span><span><i style="background:#ff5760"></i>121°+ Danger</span></div><div id="gaugeWarning" class="gaugetext">Cold oil — warming up</div></div></section>
+<section class="panel"><div class="ph"><strong>Engine / airflow faults</strong></div><div class="inside"><div class="field"><label for="fault">Select a fault</label><select id="fault"><option value="none">Normal operation</option><option value="dirty">Dirty / clogged cylinder-head fins</option><option value="cylinders">Cylinder cooling fins partially blocked</option><option value="belt">Fan belt slipping / reduced fan speed</option><option value="fan">Broken fan drive — fan stationary</option><option value="duct">Damaged fan shroud / air leakage</option><option value="intake">Blocked cooling-air intake</option><option value="deflectors">Missing lower cylinder deflector tins</option><option value="sled">Missing lower sled tins / hot-air recirculation</option><option value="flaps">Cooling flaps jammed / airflow misdirected</option></select></div><div class="field"><label for="ambient">Ambient air <b id="ambientVal">20°C</b></label><input type="range" id="ambient" min="-20" max="45" step="5" value="20"/></div><div class="field"><label for="fanOverride">Mechanical fan demonstration</label><select id="fanOverride"><option value="auto">Normal engine-driven fan</option><option value="slow">Simulate slow fan (50%)</option><option value="off">Simulate fan stopped</option></select></div><div class="faultnote" id="faultExplain">Healthy vanes, cooling flaps and lower tins guide roughly two thirds of the illustrative flow across the heads and one third across the cylinders.</div></div></section>
+<section class="panel"><div class="ph"><strong>Simulation</strong></div><div class="inside"><div class="btns"><button id="pause">Pause</button><button id="reset">Reset cold start</button></div><div class="field"><label for="simSpeed">Simulation rate <b id="simSpeedRead">12×</b></label><input id="simSpeed" type="range" min="1" max="45" value="12" step="1"/></div><div style="font-size:12px;color:#b8cfdd;line-height:1.6"><div>Fan drive: <b id="fanStatus">Spinning</b></div><div>Fan speed: <b id="fanRPM">2,250 RPM</b></div><div>Cylinder head: <b id="headTemp">22°C</b> · Cylinder: <b id="cylTemp">22°C</b></div><div>Engine oil (gauge): <b id="oilTemp">22°C</b></div><div>Airflow efficiency: <b id="airEff">100%</b></div><div>Elapsed simulation: <b id="elapsed">0:00</b></div></div></div></section>
+<p class="faultnote">Cutaway teaching diagram of cooling shrouds, internal distribution vanes, flap guides, and lower cylinder deflector tins. Illustrated fan air split is approximately 2/3 to heads and 1/3 to cylinders, not a measured specification for every VW engine. Missing lower tins cause air to bypass lower cooling fins and create local hot spots. The light-tinted cover panels are shown transparent so the flow paths remain visible. Unlike a water-cooled vehicle, this design has no radiator, coolant, thermostat, or electric temperature-controlled fan. Oil-temperature bands shown here are teaching ranges for this air-cooled example. Cylinder-head metal temperatures are substantially higher and vary with sensor location and engine design. Thermal dynamics are illustrative, not manufacturer calibration.</p>
+</aside></div>
+<script>
+(()=>{'use strict';const $=id=>document.getElementById(id),clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+const s={temp:22,cyl:22,oil:22,elapsed:0,run:true,scenario:'highway',rpm:2250,load:28,speed:100,fanRpm:2250,fanAngle:0,ambient:20,rate:12};
+const notes={none:'Healthy vanes, cooling flaps and lower tins guide roughly two thirds of the illustrative flow across the heads and one third across the cylinders.',dirty:'Oil and dirt on the head fins reduce heat transfer near the hot exhaust valves.',cylinders:'Blocked cylinder fins reduce the area that transfers heat into moving air.',belt:'A slipping belt slows the mechanically driven fan even when engine RPM is high.',fan:'Failed drive prevents the fan rotating; ram air alone may not cool enclosed fins.',duct:'A damaged shroud allows cooling air to escape before reaching the heads.',intake:'Debris at the intake restricts air entering the fan and downstream ducts.',deflectors:'Missing lower deflectors let air bypass the underside of the cylinder fins, creating hot spots. Heated exhaust normally discharges beneath the engine.',sled:'Missing sled tins and poor lower sealing allow hot discharge to re-enter the inlet, raising intake-air temperature and increasing oil and head temperatures.',flaps:'A jammed/misdirected air flap disrupts delivery to the heads and cylinders and can form localized hot spots.'};
+let fault='none';let airflowPhase=0;function setScenario(){s.scenario=$('scenario').value;$('customCtrls').classList.toggle('hidden',s.scenario!=='custom');s.elapsed=0;}
+$('scenario').addEventListener('change',setScenario);for(const id of ['customSpeed','customRpm','customLoad'])$(id).addEventListener('input',()=>{$(id+'Text').textContent=id==='customSpeed'?$(id).value+' km/h':id==='customRpm'?Number($(id).value).toLocaleString():$(id).value+'%'});
+$('fault').addEventListener('change',()=>{fault=$('fault').value;$('faultExplain').textContent=notes[fault];$('dirtyMarks').style.display=['dirty','cylinders'].includes(fault)?'':'none';$('ductLeak').style.display=fault==='duct'?'':'none';$('lowerDeflectors').style.display=fault==='deflectors'?'none':'';$('missingTinAir').style.display=['deflectors','sled','flaps'].includes(fault)?'':'none';$('coolingFlaps').style.opacity=fault==='flaps'?.27:1});
+$('pause').addEventListener('click',()=>{s.run=!s.run;$('pause').textContent=s.run?'Pause':'Resume'});
+$('reset').addEventListener('click',()=>{s.temp=s.ambient;s.cyl=s.ambient;s.oil=s.ambient;s.elapsed=0;s.run=true;$('pause').textContent='Pause'});
+function drive(){const t=s.elapsed;switch(s.scenario){case 'highway':s.speed=100;s.rpm=2250;s.load=28;break;case 'idle':s.speed=0;s.rpm=800;s.load=16;break;case 'city':{
+ // A longer, repeatable city trip. Each ~7.5 minute circuit includes long
+ // stretches near 50–60 km/h, an occasional gentle slowdown to ~40 km/h,
+ // a later traffic light, several seconds stopped, and smooth departure.
+ // Variation is deterministic per circuit (no jumpy frame-by-frame randomness).
+ const cycle=450, lap=Math.floor(t/cycle), u=t-lap*cycle;
+ const wiggle=(n)=>Math.sin((lap+1)*12.9898+n*78.233)*.5+.5;
+ const cruiseA=53+5*wiggle(1), cruiseB=52+6*wiggle(2),
+       dip=39+3*wiggle(3), cruiseC=51+5*wiggle(4);
+ const phases=[
+   [0,cruiseA],[112,cruiseA],[137,dip],
+   [182,dip],[207,cruiseB],[287,cruiseB],
+   [315,0],[328,0],[346,0],[384,cruiseC],[450,cruiseC]
+ ];
+ let target=cruiseA, accel=0;
+ for(let i=1;i<phases.length;i++){
+   const [end,v1]=phases[i], [start,v0]=phases[i-1];
+   if(u<=end){
+     const x=clamp((u-start)/(end-start),0,1);
+     // Smoothstep makes acceleration/deceleration taper at both ends.
+     const eased=x*x*(3-2*x);
+     target=v0+(v1-v0)*eased;
+     accel=(v1-v0)*6*x*(1-x)/(end-start);
+     break;
+   }
+ }
+ // Road speed and crankshaft speed are related but not identical: low
+ // gearing increases RPM during take-off; idling maintains ~800 RPM.
+ s.speed=Math.max(0,target);
+ const moving=target>1;
+ const gearing=target<23?42:target<42?36:31;
+ const cruiseRpm=800+Math.max(0,target-2)*gearing*.68;
+ const accelerating=clamp(accel/1.3,0,1);
+ const decelerating=clamp(-accel/1.5,0,1);
+ s.rpm=Math.round(clamp(moving?cruiseRpm+accelerating*560-decelerating*260:800,800,2850));
+ s.load=Math.round(clamp(moving?20+accelerating*28-decelerating*9+2*Math.sin(t*.035):15,9,55));
+ break;}case 'hill':{const p=clamp(t/150,0,1);s.speed=50-25*p;s.rpm=Math.round(3400+640*p+100*Math.sin(t*.11));s.load=78+14*p;break;}default:s.speed=Number($('customSpeed').value);s.rpm=Number($('customRpm').value);s.load=Number($('customLoad').value);}}
+function model(dt){drive();s.ambient=Number($('ambient').value);const fanFault=fault==='fan';let factor=fanFault?0:fault==='belt'?.42:1;factor*=$('fanOverride').value==='slow'?.5:$('fanOverride').value==='off'?0:1;s.fanRpm=s.rpm*factor;
+const fin=fault==='dirty'?.48:fault==='cylinders'?.62:fault==='deflectors'?.70:fault==='flaps'?.64:1,duct=fault==='duct'?.56:fault==='sled'?.72:1,intake=fault==='intake'?.38:1;
+const airEff=fin*duct*intake;const ram=clamp(s.speed/110,0,1),fan=clamp(s.fanRpm/3500,0,1.3);
+// Oil temperature is the controlled 82–121°C demonstration scale.
+// Cylinder-head metal is modeled separately and runs substantially hotter.
+// Lumped thermal approximation: increased load produces heat; RPM drives
+// BOTH heat production and the fan. A healthy cruise balances near ~90–100°C.
+const heat=10+.40*s.load+.006*s.rpm;
+const cooling=(.12+.37*fan+.13*ram)*airEff;
+const loss=Math.max(0,s.temp-s.ambient)*cooling;
+s.temp=clamp(s.temp+(heat-loss)*dt/135,s.ambient,150);
+const headTarget=s.temp+58+.30*s.load+(fault==='dirty'?15:0)+(fault==='duct'?8:0)+(fault==='flaps'?24:0)+(fault==='sled'?14:0);
+s.cyl+=(headTarget-17+(fault==='cylinders'?13:0)+(fault==='deflectors'?34:0)+(fault==='flaps'?11:0)-s.cyl)*clamp(dt/28,0,1);
+s.oil=s.temp;
+s.fanAngle+=(s.fanRpm/60)*2*Math.PI*dt;
+s.elapsed+=dt;
+return {airEff,headTarget};}
+function oilBand(t){return t>=121?['DANGER · overheating risk','Danger',true]:t>=114?['CAUTION · reduce load / inspect cooling','Caution',true]:t>=105?['WARM · higher than ideal','Warm',false]:t>=82?['OPTIMAL · normal oil temperature','Optimal',false]:['WARMING UP · oil below operating range','Warming up',false]}
+function show(m){const h=m.headTarget,t=Math.round(s.temp),band=oilBand(t);
+$('vSpeed').textContent=Math.round(s.speed);$('rpmRead').textContent=Math.round(s.rpm).toLocaleString();$('loadRead').textContent=Math.round(s.load)+'%';
+$('tempRead').textContent=t+'°C';$('headTemp').textContent=Math.round(h)+'°C';$('cylTemp').textContent=Math.round(s.cyl)+'°C';$('oilTemp').textContent=t+'°C';$('gaugeValue').textContent=t+'°C';
+$('ambientVal').textContent=s.ambient+'°C';$('simSpeedRead').textContent=s.rate+'×';$('fanRPM').textContent=Math.round(s.fanRpm).toLocaleString()+' RPM';$('fanStatus').textContent=s.fanRpm<20?'STOPPED':s.fanRpm<s.rpm*.8?'Reduced':'Spinning';$('airEff').textContent=Math.round(m.airEff*100)+'%';$('elapsed').textContent=Math.floor(s.elapsed/60)+':'+String(Math.floor(s.elapsed%60)).padStart(2,'0');
+$('gaugeWarning').textContent=band[0];$('gaugeWarning').classList.toggle('alert',band[2]);$('tempStatus').textContent=band[1];
+$('needle').setAttribute('transform',`rotate(${oilGaugeAngle(s.temp)} 150 151)`);
+$('fanRotor').setAttribute('transform',`rotate(${(s.fanAngle*180/Math.PI)%360})`);
+// Airflow visual responds to fan output; road airflow is weaker than fan-driven duct flow.
+const airflow=clamp(.08+s.fanRpm/3500*.95+s.speed/160*.18,0,1.4)*m.airEff;
+// Dash positions are advanced monotonically in frame(). Never change a CSS animation
+// duration mid-cycle: that can jump its progress backwards as driving RPM fluctuates.
+for(const id of ['intakeAir','leftAir','rightAir','leftExhaustAir','rightExhaustAir','leftHeadJet','rightHeadJet','leftBarrelJet','rightBarrelJet','leftWrapAir','rightWrapAir']){
+ const el=$(id);el.style.opacity=clamp(airflow*(id.endsWith('WrapAir')&&fault==='deflectors'?.10:1),0,.97);
+ el.style.animation='none';
+ el.style.strokeDashoffset=String(-airflowPhase);
+}
+let c=h<110?'#46c9f9':h<170?'#74dfac':h<195?'#ffbd65':'#ff6352';for(const id of ['leftCyl','rightCyl','leftHead','rightHead'])$(id).setAttribute('fill',c);
+$('flowDescription').textContent=s.fanRpm<20?'Fan stopped — cylinder/head cooling severely limited.':fault==='deflectors'?'Missing lower tins: air escapes above the barrels, leaving lower fin surfaces undercooled.':fault==='sled'?'Missing sled tins: hot exhaust air can recirculate into the fan intake.':`Fan ${Math.round(s.fanRpm)} RPM; illustrative flow split ~2/3 to heads, ~1/3 to cylinders.`;$('faultFlag').textContent=fault==='none'?'Normal cooling airflow':$('fault').selectedOptions[0].textContent;}
+const svgNS='http://www.w3.org/2000/svg';
+// Nonlinear gauge scale: normal oil temperature (82–104°C) occupies the centre.
+function oilGaugeAngle(temp){const stops=[[20,-105],[82,-40],[104,40],[113,62],[121,83],[130,105]];const t=clamp(temp,20,130);for(let i=1;i<stops.length;i++){if(t<=stops[i][0]){const [a,aa]=stops[i-1],[b,bb]=stops[i];return aa+(t-a)/(b-a)*(bb-aa)}}return 105}
+function oilArc(a,b){const r=118,cx=150,cy=151;const pt=t=>{let z=oilGaugeAngle(t)*Math.PI/180;return [cx+r*Math.sin(z),cy-r*Math.cos(z)]};const p=pt(a),q=pt(b);return `M${p[0].toFixed(2)} ${p[1].toFixed(2)} A${r} ${r} 0 0 1 ${q[0].toFixed(2)} ${q[1].toFixed(2)}`}
+for(const [a,b,color] of [[20,82,'#38a7ef'],[82,104,'#40d7aa'],[104,113,'#ffc55e'],[113,121,'#fa974e'],[121,130,'#ff5760']]){const path=document.createElementNS(svgNS,'path');path.setAttribute('d',oilArc(a,b));path.setAttribute('stroke',color);path.setAttribute('stroke-width','13');path.setAttribute('fill','none');path.setAttribute('stroke-linecap','butt');$('gaugeBands').append(path)}
+let last=performance.now();function frame(now){const elapsed=Math.min(.08,(now-last)/1000);last=now;s.rate=Number($('simSpeed').value);let m={airEff:1,headTarget:s.temp+58+.30*s.load};if(s.run){const dt=elapsed*s.rate;m=model(dt);
+ // The air always travels from the intake through the fan, over the heads,
+ // and out underneath. Lower RPM reduces its forward rate, never its direction.
+ const flowStrength=clamp(.08+s.fanRpm/3500*.95+s.speed/160*.18,0,1.4)*m.airEff;
+ airflowPhase=(airflowPhase+dt*15.6*Math.max(0,flowStrength))%42;
+}else{drive();m.headTarget=s.temp+58+.30*s.load+(fault==='dirty'?15:0)+(fault==='duct'?8:0)+(fault==='flaps'?24:0)+(fault==='sled'?14:0);m.airEff=(fault==='dirty'?.48:fault==='cylinders'?.62:fault==='deflectors'?.70:fault==='flaps'?.64:1)*(fault==='duct'?.56:fault==='sled'?.72:1)*(fault==='intake'?.38:1);}show(m);requestAnimationFrame(frame);}setScenario();show({airEff:1,headTarget:s.temp+58+.30*s.load});requestAnimationFrame(frame);
+})();
+</script></body></html>
