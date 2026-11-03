@@ -1,9 +1,15 @@
 # 3D Basic Cooling System
 
-Lesson 5 for the Automotive Training Lab.
+Browser lesson for Automotive Training Lab, built from the Unity CoolingLab scene.
 
-This branch prepares the lesson navigation. The Unity Web build still needs to be exported from the working Unity project and added to this folder before merging or publishing.
+## Students
 
-The finished folder must contain index.html plus its Build folder and any TemplateData or StreamingAssets folders produced by Unity. Use a single-threaded Web build with compression disabled for GitHub Pages. Preserve all generated relative paths.
+Open [3D Basic Cooling System](https://olmandave.github.io/Automotive-Training-Lab/3d-basic-cooling-system/) in a current desktop browser with WebGL support. Unity does not need to be installed. Use the camera presets, simulation controls, cutaway toggle, temperature graph, and diagnostic faults in the lesson. The header links back to the lesson list and offers full-screen mode.
 
-Before publishing, test model rendering, camera orbit/top view, belt and fan motion, cutaways, fault controls, and the clipped temperature graph in a browser. Merge this branch only after the browser build has been added and checked.
+## Build and hosting
+
+These are the exported browser files, not the editable Unity project. GitHub Pages serves them as static assets; `.nojekyll` avoids Jekyll processing. Compression is disabled in the Unity build, so custom Content-Encoding headers are unnecessary.
+
+The exact exported WebAssembly runtime is stored as `Build/3d-basic-cooling-system.wasm.part1` and `.part2` to fit connector upload limits. `index.html` fetches them in order, joins them into an application/wasm Blob, and passes its URL to Unity. The reconstructed runtime matches the original exported file byte for byte.
+
+For local testing, serve the repository through HTTP rather than opening index.html directly. To replace the build, export the Unity Web build again, replace all generated Build assets together, and update the runtime parts and wrapper if retaining this layout.
