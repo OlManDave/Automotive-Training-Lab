@@ -1,0 +1,504 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Reverse-Flow Cooling System Simulator</title>
+<style>
+:root{font-family:Inter,Segoe UI,system-ui,sans-serif;color:#eaf3fb;color-scheme:dark;background:#091421}*{box-sizing:border-box}body{margin:0}header{padding:17px 23px;background:#102338;border-bottom:1px solid #35516b;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}h1{font-size:21px;margin:0 0 3px}header p{margin:0;font-size:12px;color:#a9c6d8}.layout{display:grid;grid-template-columns:minmax(0,1fr) 315px;align-items:start}.main{padding:14px;min-width:0}.aside{background:#112438;padding:17px;border-left:1px solid #344d63;min-height:93vh}h2{font-size:15px;margin:0 0 12px}.panel{border:1px solid #34536b;background:#0f2236;border-radius:11px;overflow:hidden;margin-bottom:13px}.head{padding:10px 15px;background:#19364d;border-bottom:1px solid #34546d;display:flex;justify-content:space-between;gap:8px;align-items:center}.head strong{font-size:14px}.head small{font-size:11px;color:#9fcbdc}.diagram-wrap{overflow:auto}.diagram{display:block;width:100%;min-width:665px;aspect-ratio:1200/705}.toolbar{padding:13px 15px}.toolbar-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap}.toolbar .select{min-width:255px;flex:1}.numbers{display:flex;flex-wrap:wrap;gap:8px;margin-top:11px}.pill{font-size:12px;padding:7px 9px;background:#102b42;border:1px solid #365b75;border-radius:7px}.pill b{color:white}.control{margin:15px 0}.control label{display:flex;justify-content:space-between;color:#c8dce9;font-size:12px;margin-bottom:6px}.control b{color:#96e0ff}input[type=range]{width:100%;accent-color:#49bef0}button,select{font:inherit;color:#f0f7fb;background:#214763;border:1px solid #47728b;border-radius:8px;padding:9px 10px;cursor:pointer}select{width:100%;font-size:13px}button:hover{background:#2b5875}button.active{background:#166f9a;outline:1px solid #72cefb}.buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px}.custom{display:grid;grid-template-columns:repeat(3,minmax(130px,1fr));gap:14px;margin-top:14px}.custom[hidden]{display:none}.readings{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin:10px 0}.metric{background:#132c42;border:1px solid #31516a;border-radius:9px;padding:11px}.metric span{color:#a4c4d9;font-size:11px;display:block}.metric b{font-size:24px;display:block;margin:3px 0}.metric small{font-size:10px;color:#9ab9cc}.gauge{padding:12px;text-align:center}.gauge svg{width:240px;max-width:100%;display:block;margin:auto}.gauge .status{margin:0;font-size:12px;color:#b9d6e6}.gauge .status.warning{color:#ff9e84;font-weight:700}.divider{border:0;border-top:1px solid #33536b;margin:18px 0}.note{font-size:11px;color:#a5bed0;line-height:1.55}.key{display:flex;gap:17px;flex-wrap:wrap;padding:9px 14px;font-size:11px;color:#bbd2e1;border-top:1px solid #35536d}.key i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px}.statusbar{padding:10px 14px;display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:#b5d0df}.statusbar strong{color:#e5f7ff}.alarm{color:#ff967e!important}.sub{font-size:12px;fill:#c6dce8}.label{font-size:19px;font-weight:750;fill:#eaf5ff}.small{font-size:11px;fill:#a3c5d6}.hose{fill:none;stroke:#344e61;stroke-width:24;stroke-linecap:round;stroke-linejoin:round}.thin-hose{stroke-width:10}.flow{fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:17 13;stroke-width:9;animation:flow .9s linear infinite}.thin-flow{stroke-width:4;stroke-dasharray:7 10}.seam{fill:none;stroke:#a6bac7;stroke-width:4}.cold{stroke:#4cc6f6}.hot{stroke:#ff9860}.inside{stroke:#72d9c9}@keyframes flow{to{stroke-dashoffset:-60}}#fanRotor,#pumpRotor{transform-box:fill-box;transform-origin:center}@media(max-width:1100px){.layout{grid-template-columns:1fr}.aside{min-height:0;border-left:0;border-top:1px solid #34516a}.readings{grid-template-columns:repeat(2,1fr)}}@media(max-width:700px){.main{padding:7px}.custom{grid-template-columns:1fr}.metric b{font-size:20px}}
+.gallery-shell{fill:none;stroke:#b9cbd7;stroke-width:14;stroke-linecap:round;stroke-linejoin:round}
+.gallery-core{fill:none;stroke:#102c3c;stroke-width:9;stroke-linecap:round;stroke-linejoin:round}
+.flow.pump-flow{stroke-width:3.8;stroke-dasharray:5 10}
+#internalBypassFlow{stroke-width:3.5}
+#pumpHotChamberFlow{stroke-width:3.5}
+#radInletFlow{stroke-width:3.5}
+#heaterThermostatBranchFlow{stroke-width:3;stroke-dasharray:4 7}
+#pumpHotChamberFlow{stroke-width:3.2}
+/* The bottom pressurized-degas feed is a genuine supply hose, not a thin bleed line. */
+.degas-supply-hose{stroke-width:15}
+.degas-supply-flow{stroke-width:5.5;stroke-dasharray:10 11}
+</style><style>
+/* Restored dashboard-style V7 gauge, scaled to current right rail */
+.compactGauge{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 7px 10px}
+.compactGaugeText{font-size:11px;color:#9abdd1;text-align:center}
+.compactGaugeText span{display:none}
+.compactGaugeDial{width:100%;max-width:300px}
+.compactGaugeDial svg{display:block;width:100%;height:auto}
+.compactGaugeReadouts{width:100%;font-size:10px;text-align:center}
+.compactGaugeReadouts .gaugeSub{display:flex;justify-content:center;gap:12px;flex-wrap:wrap}
+.compactGaugeReadouts i.dot{width:7px;height:7px;display:inline-block;border-radius:50%;margin-right:3px}
+.compactGaugeAlert{color:#ff997d;font-size:11px;min-height:14px;font-weight:700}
+#radBleedFlow.shutdownReverse{animation-direction:reverse}
+</style></head><body>
+<header><div><h1>Reverse-Flow Cooling System Simulator</h1><p>Improvised reverse-flow circuit • Pump mounted to block • Thermostat above pump • Simple external hose routing • Pressurized degas reservoir</p></div><small>Automotive Training Lab · 2D interactive teaching model</small></header>
+<div class="layout"><main class="main">
+<section class="panel toolbar"><div class="toolbar-row"><div class="select"><label for="scenario" style="font-size:12px;color:#a6cddd">Driving condition</label><select id="scenario"><option value="highway">Highway cruise · 100 km/h</option><option value="city">City driving · variable speed</option><option value="uphill">Uphill climb · heavy load</option><option value="idle">Stopped / idling</option><option value="custom">Custom speed, RPM and load</option></select></div><div style="font-size:12px;color:#aed2e7" id="drivePhase">Steady highway cruise</div></div><div class="numbers"><span class="pill">Speed <b id="speedRead">100 km/h</b></span><span class="pill">RPM <b id="rpmRead">2250</b></span><span class="pill">Load <b id="loadRead">28%</b></span><span class="pill">Elapsed <b id="elapsedRead">0:00</b></span></div><div id="custom" class="custom" hidden><div class="control"><label>Speed <b id="speedSet">50 km/h</b></label><input id="speed" type="range" min="0" max="160" value="50"></div><div class="control"><label>Engine RPM <b id="rpmSet">1800</b></label><input id="rpm" type="range" min="650" max="6000" step="50" value="1800"></div><div class="control"><label>Engine load <b id="loadSet">40%</b></label><input id="load" type="range" min="0" max="100" value="40"></div></div></section>
+<section class="panel"><div class="head"><strong>Engine and cooling circuit</strong><small>Cool blue → Gold/amber → Orange → Hot red • Animated flow</small></div><div class="diagram-wrap"><svg id="diagram" class="diagram" viewBox="0 0 1200 705" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Simplified reverse flow cooling diagram: a water pump mounted on the engine block, thermostat on top of pump, lower radiator hose feeds thermostat, hot pump outlet sends coolant to upper radiator hose, and pump sends coolant to cylinder heads first">
+<defs>
+ <pattern id="dots" width="36" height="36" patternUnits="userSpaceOnUse"><path d="M36 0H0V36" stroke="#244258" stroke-width=".6" fill="none"/></pattern>
+ <linearGradient id="blockMetal" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#7992a0"/><stop offset="1" stop-color="#334a59"/></linearGradient>
+ <linearGradient id="headMetal" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#9badb5"/><stop offset="1" stop-color="#526b7b"/></linearGradient>
+ <linearGradient id="radGrad"><stop stop-color="#f2ad5a"/><stop offset="1" stop-color="#52c8f1"/></linearGradient>
+</defs>
+<rect width="1200" height="705" fill="#0b1d2e"/><rect width="1200" height="705" fill="url(#dots)" opacity=".35"/>
+<!-- Only EXTERNAL hoses are illustrated. Pump and thermostat internals intentionally not depicted. -->
+<!-- Heater circuit at left, unobstructed -->
+<g id="heaterHoses">
+ <path class="hose" d="M398 285 H300 Q278 285 278 256 V207 H217"/>
+ <path class="hose" d="M217 448 H266 Q290 448 290 475 V611 Q290 632 312 632 H680 Q698 632 698 605 V443 H724"/>
+</g>
+<!-- Upper hose leaving the separate hot-water OUTLET on pump, routed to radiator upper tank -->
+<g id="upperHoseGroup"><path class="hose" d="M830 355 H929 Q951 355 951 333 V284 Q951 265 972 265 H1016"/></g>
+<!-- Lower hose from radiator lower tank to thermostat HOUSING ON TOP of pump.
+     The outside sweep intentionally separates it from the other hoses. -->
+<g id="lowerHoseGroup"><path class="hose" d="M1017 568 H961 Q941 568 941 592 V650 H867 Q851 650 851 631 V233 Q851 212 828 212 H791 V266"/></g>
+<!-- Pump discharge into heads, and engine return to the pump casting face -->
+<g id="engineHoses">
+ <path class="hose" d="M717 385 H692 Q676 385 676 369 V258 H657"/>
+</g>
+<!-- Small upper bleed vents and larger lower degas supply line -->
+<g id="degasLines">
+ <path class="hose thin-hose" d="M593 233 V113 Q593 98 609 98 H808"/>
+ <path class="hose thin-hose" d="M1092 264 V95 H950"/>
+ <!-- Pressurized reservoir bottom SUPPLY: runs down to a diagonal Y-joint
+      on the vertical lower radiator hose, before the thermostat inlet. -->
+ <path class="hose degas-supply-hose" d="M881 162 V193 Q881 210 893 219 L907 233 Q915 243 905 255 L851 307"/>
+</g>
+<!-- A metal Y-fitting joins the bottle supply with radiator return on the low-pressure
+     side ahead of the thermostat. The bottle's small TOP vents remain separate. -->
+<g id="degasMakeupJunction" aria-label="Y-joint: degas bottom supply into lower radiator hose and pump suction">
+ <path d="M851 286 V330" fill="none" stroke="#8da9b9" stroke-width="26" stroke-linecap="round"/>
+ <path d="M881 279 L856 303" fill="none" stroke="#9fb8c5" stroke-width="21" stroke-linecap="round"/>
+ <path d="M851 286 V330" fill="none" stroke="#344e61" stroke-width="18" stroke-linecap="round"/>
+ <path d="M881 279 L856 303" fill="none" stroke="#344e61" stroke-width="12" stroke-linecap="round"/>
+ <circle cx="851" cy="307" r="7" fill="#344e61" stroke="#c3d5df" stroke-width="2.5"/>
+</g>
+<!-- All flow animation paths are aligned to the visible EXTERNAL hoses. -->
+<g id="flows">
+ <path id="hotRadFlow" class="flow hot" d="M830 355 H929 Q951 355 951 333 V284 Q951 265 972 265 H1016"/>
+ <path id="coldRadFlow" class="flow cold" d="M1017 568 H961 Q941 568 941 592 V650 H867 Q851 650 851 631 V233 Q851 212 828 212 H791 V266"/>
+ <path id="headFeedFlow" class="flow cold" d="M717 385 H692 Q676 385 676 369 V258 H657"/>
+ <path id="heaterFeedFlow" class="flow hot" d="M398 285 H300 Q278 285 278 256 V207 H217"/>
+ <path id="heaterReturnFlow" class="flow cold" d="M217 448 H266 Q290 448 290 475 V611 Q290 632 312 632 H680 Q698 632 698 605 V443 H724"/>
+ <path id="headBleedFlow" class="flow thin-flow cold" d="M593 233 V113 Q593 98 609 98 H808"/>
+ <path id="radBleedFlow" class="flow thin-flow cold" d="M1092 264 V95 H950"/>
+ <path id="bottleMakeupFlow" class="flow degas-supply-flow cold" d="M881 162 V193 Q881 210 893 219 L907 233 Q915 243 905 255 L851 307"/>
+</g>
+<!-- heater core -->
+<g id="heaterCore">
+ <rect x="98" y="191" width="119" height="265" rx="14" fill="#293f4e" stroke="#b8ccd6" stroke-width="6"/>
+ <g id="heaterFins"/>
+ <path id="heaterTopHeader" d="M112 205 H203" fill="none" stroke="#dfb65b" stroke-width="5" stroke-linecap="round"/>
+ <path d="M177 179 V188 M177 457 V468" stroke="#b8ccd6" stroke-width="14"/>
+ <text x="157" y="158" class="label" text-anchor="middle">Heater core</text>
+</g>
+<!-- block and cylinder head are drawn simply, with visible downward jacket flow -->
+<g id="engine">
+ <path d="M383 311 H679 V495 L636 572 H422 L383 493Z" fill="url(#blockMetal)" stroke="#b2c7d3" stroke-width="6"/>
+ <path d="M381 241 H678 V310 H381Z" fill="url(#headMetal)" stroke="#c3d2dc" stroke-width="6"/>
+ <rect x="375" y="230" width="310" height="20" rx="5" fill="#476678" stroke="#c5d4dc" stroke-width="4"/>
+ <g id="bores"/>
+ <!-- Head inlet matches the pump/radiator return mixing temperature; downstream jackets show warming independent of the potentially inaccurate dashboard ECT. -->
+ <g id="engineJacketFlows" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Uniform warm head gallery: heat gained rapidly in the head. Pump inlet feed stays separate. -->
+  <path id="jacketHeadInlet" class="flow" stroke-width="5" stroke-dasharray="12 14" d="M650 285 H525"/>
+  <path id="jacketHeadOutlet" class="flow" stroke-width="5" stroke-dasharray="12 14" d="M525 285 H402"/>
+  <path id="jacket1" class="flow" stroke-width="5" stroke-dasharray="12 14" d="M415 304 V486"/>
+  <path id="jacket2" class="flow" stroke-width="5" stroke-dasharray="12 14" d="M484 304 V486"/>
+  <path id="jacket3" class="flow" stroke-width="5" stroke-dasharray="12 14" d="M553 304 V486"/>
+  <path id="jacket4" class="flow" stroke-width="5" stroke-dasharray="12 14" d="M620 304 V486"/>
+  <path id="jacketBlock" class="flow" stroke-width="5" stroke-dasharray="12 14" d="M420 492 H636"/>
+ </g>
+ <text x="530" y="208" class="label" text-anchor="middle">Cylinder heads</text>
+ <text x="529" y="600" class="label" text-anchor="middle">Engine block</text>
+</g>
+<!-- a physical bolted attachment: water pump is in front of engine block -->
+<g id="pumpMount">
+ <rect x="675" y="346" width="45" height="121" rx="11" fill="#334d60" stroke="#b8cbd4" stroke-width="5"/>
+ <circle cx="699" cy="364" r="5" fill="#d8e6ea"/><circle cx="699" cy="449" r="5" fill="#d8e6ea"/>
+</g>
+<!-- Opaque pump casing, deliberately no coolant galleries or bypass art -->
+<g id="waterPump">
+ <path d="M721 318 H822 Q841 318 841 337 V447 Q841 465 822 465 H721 Q708 465 708 451 V332 Q708 318 721 318Z" fill="#536e80" stroke="#b9ced9" stroke-width="7"/>
+ <circle cx="776" cy="390" r="46" fill="#1a384b" stroke="#b1cad6" stroke-width="7"/>
+ <g id="pumpRotor"><g id="pumpBlades"/></g>
+ <circle cx="776" cy="390" r="11" fill="#bdd5e0"/>
+ <rect x="828" y="339" width="21" height="33" rx="6" fill="#7a929f" stroke="#c8d9e2" stroke-width="4"/>
+ <text x="775" y="507" class="label" text-anchor="middle">Water pump</text>
+ <text x="775" y="528" class="small" text-anchor="middle">Bolted to block</text>
+</g>
+<!-- thermostat on TOP of pump. Lower hose plugs into a top neck. -->
+<g id="thermoAssembly">
+ <path d="M728 264 H824 Q833 264 833 276 V314 Q833 321 824 321 H728 Q720 321 720 312 V276 Q720 264 728 264Z" fill="#78919f" stroke="#c9d8df" stroke-width="5"/>
+ <path d="M753 264 V252 Q753 245 760 245 H805 Q812 245 812 252 V265" fill="none" stroke="#b8cbd4" stroke-width="7"/>
+ <g id="radiatorPoppet"><path d="M750 282 H803" stroke="#ffd17c" stroke-width="7" stroke-linecap="round"/></g>
+ <g id="bypassPoppet"><path d="M752 307 H800" stroke="#dba95b" stroke-width="6" stroke-linecap="round"/></g>
+ <g id="thermoStem"><path d="M776 283 V304" stroke="#f0bf77" stroke-width="4"/></g>
+ <text x="775" y="178" class="label" text-anchor="middle">Thermostat</text>
+ <text x="775" y="198" class="small" text-anchor="middle">Above water pump</text>
+</g>
+<!-- radiator body -->
+<g id="radiator">
+ <rect x="1010" y="270" width="144" height="300" rx="11" fill="#243d51" stroke="#b6cbd6" stroke-width="6"/>
+ <rect x="1016" y="284" width="132" height="31" rx="7" fill="#577386" stroke="#beced7" stroke-width="4"/>
+ <rect x="1028" y="316" width="108" height="215" rx="5" fill="#122b3e" stroke="#8eafbf" stroke-width="3"/>
+ <g id="radFins"/>
+ <rect x="1016" y="531" width="132" height="36" rx="7" fill="#577386" stroke="#beced7" stroke-width="4"/>
+ <g id="radFan"><g id="fanRotor"><g id="fanBlades"/><circle r="12" fill="#739bac" stroke="#cadbe1" stroke-width="3"/></g></g>
+ <text x="1080" y="604" class="label" text-anchor="middle">Radiator</text>
+</g>
+<!-- degas bottle, separated above hoses -->
+<g id="bottle">
+ <path d="M811 53 H941 Q952 53 952 66 V149 Q952 164 940 164 H821 Q810 164 810 151 V65 Q810 53 811 53Z" fill="#41677b" stroke="#bad0db" stroke-width="6"/>
+ <path id="degasLiquid" d="M820 103 H942 V150 H820Z" fill="#4cbed6" opacity=".72"/>
+ <rect x="845" y="38" width="70" height="18" rx="6" fill="#a9bec9" stroke="#d4e3e8" stroke-width="3"/>
+ <text x="881" y="83" class="sub" text-anchor="middle">Degas bottle</text>
+ <text x="881" y="99" class="small" text-anchor="middle">Pressurized</text>
+</g>
+<g id="radiatorHoseLabels">
+ <text x="944" y="243" class="sub" text-anchor="middle">UPPER HOSE</text>
+ <text x="962" y="686" class="sub" text-anchor="middle">LOWER HOSE</text>
+</g>
+<text x="786" y="550" id="thermostatLabel" class="sub" text-anchor="middle">Thermostat 0% radiator</text>
+<text x="786" y="569" id="bypassLabel" class="small" text-anchor="middle">Bypass open</text>
+<g id="particles" pointer-events="none"/>
+</svg></div><div class="key"><span><i style="background:#53c6f5"></i>Cooler coolant</span><span><i style="background:#ff925b"></i>Hot coolant</span><span><i style="background:#75d9c4"></i>Internal bypass</span><span><i style="background:#dfc47d"></i>Heater circuit</span><span>Fine lines = degas / air bleed</span></div><div class="statusbar"><strong id="flowStatus">Cold warm-up: internal bypass</strong><span id="systemStatus">Engine warming up</span><span id="fanStatus">Fan off</span></div></section>
+<div class="readings"><div class="metric"><span>Engine head / block</span><b id="engineRead">20°C</b><small>Modeled internal temperature</small></div><div class="metric"><span>Radiator hot inlet</span><b id="radInRead">20°C</b><small>Upper hose</small></div><div class="metric"><span>Radiator cool outlet</span><b id="radOutRead">20°C</b><small>Lower hose</small></div><div class="metric"><span>Thermostat / radiator flow</span><b id="openRead">0%</b><small>Dual poppet</small></div></div>
+<div class="note" style="padding:8px 13px 18px">Improvised head-first reverse-flow teaching diagram: coolant enters the heads, passes downward through the block and returns through rear pump passages to the <b>hot-side chamber</b>. The thermostat directs return coolant to either the internal bypass or the upper radiator hose; the lower radiator hose supplies the inlet-side poppet. The complete upper cylinder-head gallery and its vertical head jets use one warm colour representing rapid heat absorption; the external pump supply line retains its inlet temperature. The heater feed shares that same warm head colour. Head metal warms faster than block metal; descending block-jacket traces follow the heated head outlet and the slower-warming block; the dashboard displays the modeled ECT reading. The bottom degas supply joins the pump suction circuit through a Y-fitting, while small upper lines serve as air bleeds. The bottle warms slowly during early warm-up and heats rapidly toward engine-coolant temperature as the thermostat opens; its liquid colour is modeled separately from engine coolant. At idle in automatic mode the low fan cycles on at 93°C and off at 91°C. The red coolant symbol illuminates only after the displayed temperature exceeds three-quarters of the gauge sweep. The amber check-engine symbol illuminates after a sustained mismatch between modeled engine metal temperature and ECT reading. Low coolant still commands HIGH fan speed as an illustrative fail-safe; heater-core heat can be weak at idle and drop off with higher RPM as air disrupts circulation. Internal pump passages are simplified for instruction, not an exact factory casting.</div>
+</main><aside class="aside"><section class="panel"><div class="head"><strong>Coolant temperature gauge</strong></div><section class="compactGauge" aria-label="Live dashboard engine temperature gauge">
+  <div class="compactGaugeText"><strong>ENGINE TEMPERATURE</strong><span>Live dashboard gauge</span></div>
+  <div class="compactGaugeDial"><svg id="tempGauge" viewBox="0 0 540 260" role="img" aria-label="Automotive coolant temperature gauge, cold to hot, with moving needle">
+    <defs>
+      <radialGradient id="dialFace"><stop offset="0%" stop-color="#23354a"/><stop offset="75%" stop-color="#0b1522"/><stop offset="100%" stop-color="#02070c"/></radialGradient>
+      <linearGradient id="steelRim" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9eafbe"/><stop offset=".25" stop-color="#3e596c"/><stop offset=".58" stop-color="#b1c7d1"/><stop offset="1" stop-color="#2d4255"/></linearGradient>
+      <filter id="needleGlow"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    </defs>
+    <ellipse cx="270" cy="144" rx="239" ry="111" fill="#03090f" stroke="url(#steelRim)" stroke-width="9"/>
+    <ellipse cx="270" cy="144" rx="225" ry="99" fill="url(#dialFace)" stroke="#314a5a" stroke-width="2"/>
+    <!-- The temperature bands and ticks share the same centred dial geometry. -->
+    <path id="coldZoneArc" fill="none" stroke="#279ff1" stroke-width="9" stroke-linecap="butt"/>
+    <path id="warmZoneArc" fill="none" stroke="#ee9733" stroke-width="9" stroke-linecap="butt"/>
+    <path id="hotZoneArc" fill="none" stroke="#eb493d" stroke-width="9" stroke-linecap="butt"/>
+    <path id="dangerZoneArc" fill="none" stroke="#ff292f" stroke-width="9" stroke-linecap="butt"/>
+    <!-- White ticks intentionally render on top of all coloured gauge bands. -->
+    <g id="gaugeTicks"></g>
+    
+    <text x="125" y="190" font-size="25" font-weight="700" fill="#68c4ff" text-anchor="middle">C</text>
+    <text x="414" y="190" font-size="25" font-weight="700" fill="#ff7864" text-anchor="middle">H</text>
+    <text x="270" y="92" text-anchor="middle" font-size="15" fill="#c7d4dd" letter-spacing="3">COOLANT TEMP</text>
+    <text id="gaugeDigital" x="270" y="124" text-anchor="middle" font-size="30" font-weight="700" fill="#f3f8fc">20°C</text>
+    <!-- Warning lights are kept clear of the center digital display and drawn
+         above the needle so the pointer can never hide an illuminated light. -->
+    <g id="gaugeNeedle" transform="rotate(-78 270 208)">
+      <path d="M270 222 L265 202 L270 71 L275 202 L270 222" fill="#ff653f" stroke="#ffb38b" stroke-width="1" filter="url(#needleGlow)"/>
+    </g>
+    <!-- Amber check-engine lamp: to the right of the digital temperature readout. -->
+    <g id="checkEngineLamp" transform="translate(330 154)" opacity="0" aria-label="Check engine warning lamp">
+      <path d="M-23 -9 H-12 L-8 -15 H8 L12 -9 H21 Q25 -9 25 -5 V-1 H30 V10 H25 V14 Q25 18 20 18 H-19 Q-24 18 -24 13 V-5 Q-24 -9 -23 -9 Z"
+            fill="#241903" stroke="#ffbc12" stroke-width="4.3" stroke-linejoin="round"/>
+      <path d="M-9 -20 H9" fill="none" stroke="#ffbc12" stroke-width="4.3" stroke-linecap="round"/>
+      <path d="M-29 -3 V10" fill="none" stroke="#ffbc12" stroke-width="4.3" stroke-linecap="round"/>
+    </g>
+    <!-- Red thermometer-over-waves coolant warning lamp, following supplied reference, moved left toward C. -->
+    <g id="coolantLevelLamp" transform="translate(170 191)" opacity="0" aria-label="Coolant temperature / low coolant warning lamp">
+      <path d="M0 -24 V-1" fill="none" stroke="#ff2424" stroke-width="5.6" stroke-linecap="round"/>
+      <path d="M1 -16 H13 M1 -7 H13" fill="none" stroke="#ff2424" stroke-width="4" stroke-linecap="square"/>
+      <circle cx="0" cy="1" r="6" fill="#ff2424"/>
+      <path d="M-20 11 Q-14 7 -8 11 T4 11 T16 11 M-20 18 Q-14 14 -8 18 T4 18 T16 18"
+            fill="none" stroke="#ff2424" stroke-width="4.2" stroke-linecap="butt"/>
+    </g>
+    <circle cx="270" cy="208" r="15" fill="#293d4e" stroke="#a7bbc8" stroke-width="4"/>
+    <circle cx="270" cy="208" r="5.5" fill="#d3e6ee"/>
+    <path d="M227 236 H313" stroke="#30495b" stroke-width="2"/>
+  </svg></div>
+  <div class="compactGaugeReadouts"><div class="gaugeSub"><span><i class="dot" style="background:#f47b53"></i>Radiator inlet <strong id="gaugeUpper">20°C</strong></span><span><i class="dot" style="background:#45baff"></i>Radiator outlet <strong id="gaugeLower">20°C</strong></span></div><div id="gaugeAlert" class="compactGaugeAlert" role="status"></div></div>
+</section></section><h2>Thermostat demonstration</h2><div class="buttons"><button id="autoMode" class="active">Automatic regulation</button><button id="manualMode">Manual temperature</button></div><div class="control"><label>Engine coolant temperature <b id="tempSet">20°C</b></label><input id="temp" type="range" min="0" max="125" value="20"></div><div class="note">Manual mode moves the linked inlet and bypass poppets. With automatic regulation, the engine warms and reacts to driving conditions and faults.</div><hr class="divider"><h2>Cooling system controls</h2><div class="control"><label>Outside temperature <b id="ambientRead">20°C</b></label><input type="range" id="ambient" min="-25" max="45" value="20"></div><div class="control"><label>Cooling fans</label><select id="fan"><option value="auto">Automatic two-speed</option><option value="high">Forced HIGH</option><option value="off">Forced OFF</option></select></div><div class="control"><label>Cabin heater</label><select id="heater"><option value="off">Off</option><option value="on">On</option></select></div><div class="control"><label>Introduce diagnostic fault</label><select id="fault"><option value="none">Normal operation</option><option value="closed">Thermostat stuck closed (bypass)</option><option value="open">Thermostat stuck open (radiator)</option><option value="pump">Water pump failure</option><option value="fan">Cooling fan failure</option><option value="restricted">Restricted radiator</option><option value="coolant">Low coolant / air pocket</option><option value="cap">Weak pressurized-reservoir cap</option><option value="bleed">Blocked degas vent</option><option value="heater">Restricted heater core</option></select></div><p id="faultDescription" class="note">All coolant circuits available. No active fault.</p><hr class="divider"><h2>Simulation</h2><div class="buttons"><button id="enginePower">Engine OFF</button><button id="pause">Pause</button><button id="reset">Reset cold start</button></div><p class="note" id="ventStatus">Radiator vent: small bleed flow toward the degas bottle while running.</p><hr class="divider"><p class="note">Fault behaviour is illustrative; real vehicles may differ in DTCs, sensor response, hose temperatures and severity. Illustrative thermostat: begins opening around 82°C, fully open around 95°C. Typical operating range 82–104°C; fan LOW ~96°C, HIGH ~105°C. Overheat warning starts ~110°C. Calibrations vary across real applications.</p></aside></div><script>
+'use strict';
+const $=id=>document.getElementById(id),clamp=(v,a,b)=>Math.min(b,Math.max(a,v)),lerp=(a,b,t)=>a+(b-a)*t;
+const paths=['hotRadFlow','coldRadFlow','headFeedFlow','heaterFeedFlow','heaterReturnFlow','headBleedFlow','radBleedFlow','bottleMakeupFlow','jacketHeadInlet','jacketHeadOutlet','jacket1','jacket2','jacket3','jacket4','jacketBlock'];
+const jacketPaths=new Set(['jacketHeadInlet','jacketHeadOutlet','jacket1','jacket2','jacket3','jacket4','jacketBlock']);
+const state={temp:20,bottleTemp:20,metalTemp:20,headMetalTemp:20,ect:20,faultElapsed:0,lastFault:'none',ectMismatchDuration:0,checkEngineDetected:false,radIn:20,radOut:20,running:true,manual:false,t:0,driveTime:0,speed:100,rpm:2250,load:28,fanStage:0,fanAngle:0,pumpAngle:0,engineOn:true,shutdownElapsed:0,airSeverity:0,pressureSeverity:0,heaterAirHeat:0};
+const scenario=$('scenario');let cityCycle=0;const cityPhases=[{duration:55,target:56,phase:'Steady city cruise'},{duration:15,target:43,phase:'Easing into slower traffic'},{duration:45,target:43,phase:'Reduced speed'},{duration:18,target:55,phase:'Accelerating to cruise'},{duration:65,target:55,phase:'City cruise'},{duration:30,target:0,phase:'Approaching traffic signal'},{duration:15,target:0,phase:'Stopped at signal'},{duration:38,target:54,phase:'Leaving the signal'},{duration:70,target:54,phase:'Cruising'}];
+function driving(dt){const mode=scenario.value;if(mode==='custom'){state.speed=+$('speed').value;state.rpm=+$('rpm').value;state.load=+$('load').value;$('drivePhase').textContent='User-defined driving conditions';return}if(mode==='highway'){state.speed=100;state.rpm=2250;state.load=28;$('drivePhase').textContent='Steady highway cruise'}else if(mode==='idle'){state.speed=0;state.rpm=800;state.load=12;$('drivePhase').textContent='Stationary at idle'}else if(mode==='uphill'){const p=(state.driveTime%145)/145;state.speed=50-25*p;state.rpm=3400+750*p;state.load=78+14*p;$('drivePhase').textContent='Climbing grade · higher load / lower airflow'}else {const cycle=cityPhases.reduce((a,p)=>a+p.duration,0);let x=state.driveTime%cycle;let start=56,chosen=cityPhases[0];for(const phase of cityPhases){if(x<=phase.duration){chosen=phase;break}x-=phase.duration;start=phase.target}const fraction=clamp(x/chosen.duration,0,1);const ease=fraction*fraction*(3-2*fraction);const target=chosen.target+(start-chosen.target)*(1-ease);const previous=state.speed;state.speed=target;const acceleration=(target-previous)/Math.max(.05,dt);state.rpm=target<1?780:clamp(900+target*24+Math.max(0,acceleration)*50,1000,2900);state.load=target<1?12:clamp(22+Math.max(0,acceleration)*16+(target>45?7:0),15,66);$('drivePhase').textContent=chosen.phase}}
+function thermostat(){const f=$('fault').value;if(f==='closed')return 0;if(f==='open')return 1;return clamp((state.temp-82)/13,0,1)}
+function fanStage(){if(!state.engineOn)return 0;if($('fault').value==='coolant'){state.fanStage=2;return 2;}if($('fan').value==='off'||$('fault').value==='fan')return 0;if($('fan').value==='high')return 2;const t=state.ect;let x=state.fanStage;const idle=scenario.value==='idle';const lowOn=idle?93:96,lowOff=idle?91:92;if(x===0&&t>=lowOn)x=1;if(x===1&&t>=105)x=2;if(x===2&&t<=103)x=1;if(x===1&&t<=lowOff)x=0;state.fanStage=x;return x}
+// Fault profiles are intentionally qualitative; actual severity depends on engine,
+// coolant level, pump construction and operating conditions.
+function faultProfile(){
+ const f=$('fault').value;
+ const air=f==='bleed'?state.airSeverity:0;
+ return {
+  circulation:f==='pump'?.10:f==='coolant'?.32:f==='bleed'?1-.68*air:1,
+  radiatorFlow:f==='restricted'?.39:f==='coolant'?.32:f==='pump'?.10:f==='bleed'?1-.68*air:f==='cap'?1-.30*state.pressureSeverity:1,
+  radiatorEfficiency:f==='restricted'?.24:f==='coolant'?.19:f==='bleed'?1-.62*air:f==='cap'?1-.60*state.pressureSeverity:1,
+  heaterFlow:f==='heater'?.025:f==='pump'?.10:f==='coolant'?.27:f==='bleed'?1-.58*air:1
+ };
+}
+function pathFlowFactor(id){
+ if(!state.engineOn)return id==='radBleedFlow'&&state.shutdownElapsed<100?1:0;
+ const fault=$('fault').value,p=faultProfile();
+ if(id==='radBleedFlow')return fault==='bleed'?.015:1;
+ if(id==='headBleedFlow')return fault==='bleed'?.015:p.circulation;
+ if(id==='bottleMakeupFlow')return fault==='coolant'?.25:p.circulation;
+ if(id==='hotRadFlow'||id==='coldRadFlow')return p.radiatorFlow;
+ if(id==='heaterFeedFlow')return p.heaterFlow;
+ if(id==='heaterReturnFlow'&&fault==='coolant')return p.heaterFlow*clamp(state.heaterAirHeat*.62,0,.23);
+ if(id==='heaterReturnFlow')return p.heaterFlow;
+ return p.circulation;
+}
+function heatStep(dt){const ambient=+$('ambient').value;if(state.manual)return;const o=thermostat(),f=fanStage();
+// Demonstration idle thermostat/fan cycling: low fan ON at 93°C, OFF at 91°C.
+// Only for healthy, automatic, stationary idle; normal heat/fault model remains for other scenarios.
+if(scenario.value==='idle'&&$('fan').value==='auto'&&$('fault').value==='none'){// Keep fan cooling gradual in REAL time. tick() advances model dt at 20x
+// wall-clock speed at V38; V39 now runs at 20× wall-clock,
+// so dt/310 is 1 degree C per 15.5 real seconds.
+// Because the display rounds to whole degrees, 93 -> 92 first appears
+// after ~7.75 real seconds; it never jumps down a degree immediately.
+if(f>0){state.temp=Math.max(89.6,state.temp-dt/310);}else{
+  state.temp=clamp(state.temp+(94.2-state.temp)*Math.min(1,dt*.025),ambient,132);
+}state.radIn+=((state.temp-1)-state.radIn)*Math.min(1,dt*.065);const radTarget=state.temp-(f>0?12:4);state.radOut+=(radTarget-state.radOut)*Math.min(1,dt*.12);return;}
+// LOW COOLANT / AIR POCKET: High-speed fans cannot remove engine heat effectively
+// when coolant circulation is interrupted by air pockets / insufficient fluid.
+// This educational fault intentionally continues to overheat even at maximum fan.
+if($('fault').value==='coolant'){
+  // Engine load changes heat production; fans reduce it slightly but cannot reverse it.
+  const loadFactor=clamp(state.load/100,0,1);
+  const poorHeatTransfer=(0.055+0.065*loadFactor)*(f===2?.86:f===1?.93:1);
+  state.temp=clamp(state.temp+poorHeatTransfer*dt,ambient,132);
+  // Radiator may have some cooling, but trapped air prevents effective engine cooling.
+  const radiatorDrop=f===2?9:f===1?6:3;
+  state.radIn+=(state.temp-1-state.radIn)*Math.min(1,dt*.035);
+  state.radOut+=(state.radIn-radiatorDrop-state.radOut)*Math.min(1,dt*.065);
+  return;
+}
+const fault=$('fault').value;
+// A weak cap loses pressure margin progressively once the system is hot.
+state.pressureSeverity=fault==='cap'&&state.temp>91?clamp(state.pressureSeverity+dt/520,0,1):Math.max(0,state.pressureSeverity-dt/700);
+const profile=faultProfile();
+const speed=state.speed;
+const heat=7.2+(state.load/100)*29+(state.rpm/6000)*4;
+const airflow=Math.min(1,speed/95)*.84+(f===2?.95:f===1?.54:0);
+const delta=Math.max(0,state.temp-ambient);
+// With a stuck-open thermostat the engine sheds heat during warm-up too.
+const stillAirPenalty=(speed<15&&f===0)?.26:1;
+const radiatorFactor=o*profile.radiatorFlow*profile.radiatorEfficiency*stillAirPenalty;
+let heatLoss=delta*(.077+radiatorFactor*(.19+airflow*.23));
+// A functioning heater can provide supplemental heat rejection, but only
+// when circulation through the core is actually present.
+if($('heater').value==='on')heatLoss+=delta*.037*profile.heaterFlow;
+let change=(heat-heatLoss)*dt*.0105;
+// A weak cap lowers the coolant's boiling margin. The effect appears only
+// once hot: vapour formation impairs cooling; it does not instantly overheat
+// a cold engine. Threshold is an educational pressure-fault approximation.
+if(fault==='cap'){
+ const vapour=clamp((state.temp-100)/13,0,1);
+ change+=dt*(.003+.029*vapour)*(1+.48*state.load/100);
+}
+// A blocked high-point vent can gradually accumulate air and lose cooling;
+// it is NOT an instantly plugged main radiator passage.
+if(fault==='bleed')change+=dt*.017*state.airSeverity*(.7+.7*state.load/100);
+// Pump impeller damage dramatically reduces heat transport; high RPM alone
+// cannot restore cooling if the impeller has failed.
+if(fault==='pump')change+=dt*.024*(.6+state.load/100);
+state.temp=clamp(state.temp+change,ambient,139);
+// Rad inlet is coolant leaving the hot side; restricted radiator flow
+// produces a smaller and slower change across the core.
+const inletAim=state.temp-(fault==='pump'?11:1);
+state.radIn+=(inletAim-state.radIn)*Math.min(1,dt*.055*profile.radiatorFlow);
+const effectiveness=profile.radiatorEfficiency;
+const deltaRad=Math.max(0,Math.min(38,(state.radIn-ambient)*(.18+airflow*.17)*effectiveness*o));
+const targetRadOut=state.radIn-deltaRad;
+state.radOut+=(targetRadOut-state.radOut)*Math.min(1,dt*.10*profile.radiatorFlow);
+}
+// Independent thermal model: the head/block casting can be hotter than the liquid
+// measured at the ECT sensor, especially with poor circulation or air pockets.
+function updateThermalReadings(dt){
+ const fault=$('fault').value;
+ if(fault!==state.lastFault){state.lastFault=fault;state.airSeverity=0;state.pressureSeverity=0;state.heaterAirHeat=0;state.faultElapsed=0;state.ectMismatchDuration=0;state.checkEngineDetected=false;state.ect=state.temp;}
+ const loss=(fault==='coolant'||fault==='pump'||fault==='closed'||fault==='restricted'||fault==='bleed'||fault==='cap');
+ const load=state.load/100;
+ const offset=fault==='coolant'?34+24*load:fault==='pump'?24+20*load:fault==='closed'?17+15*load:fault==='restricted'?12+12*load:fault==='bleed'?(5+21*state.airSeverity+11*load):fault==='cap'?(3+clamp((state.temp-100)/12,0,1)*(16+9*load)):2.5+3*load;
+ // In faults, metal can heat soak even when radiator coolant is cooler.
+ let target=state.temp+offset;
+ if(!state.engineOn)target=Math.max(state.temp,state.metalTemp-dt*.036);
+ state.metalTemp=clamp(state.metalTemp+(target-state.metalTemp)*Math.min(1,dt*(fault==='coolant'?.018:.012)),0,175);
+ // Combustion heat reaches the cylinder head first. The head casting therefore
+ // warms faster than the larger engine block and develops hotter local metal.
+ // This remains a qualitative teaching model, not a manufacturer-specific thermal calibration.
+ const headOffset=state.engineOn?(3.5+state.load*.09+(loss?9:0)):0;
+ const targetHead=Math.max(state.temp,target+headOffset);
+ const headAim=state.engineOn?targetHead:Math.max(state.temp,state.headMetalTemp-dt*.065);
+ state.headMetalTemp=clamp(state.headMetalTemp+(headAim-state.headMetalTemp)*Math.min(1,dt*(fault==='coolant'?.052:.038)),0,185);
+ if(!loss||fault!=='coolant'){
+   state.ect+= (state.temp-state.ect)*Math.min(1,dt*.36);
+   return;
+ }
+ if(state.engineOn)state.faultElapsed+=dt;
+ // Illustrative failure stages, not fixed universal ECT behaviour:
+ // 1. intermittent wetting gives erratic jumps;
+ // 2. an air pocket insulates the sensor, causing a falsely low reading;
+ // 3. intermittent wetting / steam contact can produce a sudden high reading.
+ const e=state.faultElapsed;
+ let targetEct;
+ if(e<55 || state.metalTemp<87){targetEct=state.temp;}
+ else if(e<195){targetEct=clamp(state.temp-8+12*Math.sin(e*.29)+9*Math.sin(e*.63),30,123);}
+ else if(e<410){targetEct=clamp(61+16*Math.sin(e*.018),35,82);}
+ else {targetEct=clamp(state.metalTemp-5+6*Math.sin(e*.06),30,125);}
+ state.ect+= (targetEct-state.ect)*Math.min(1,dt*(e<195?.35:e<410?.11:.26));
+}
+// Training-only ECU plausibility monitor: modelled engine metal temperature and
+// ECT readings are separate signals. Detect a sustained *large* mismatch rather
+// than illuminating a check-engine lamp as soon as a fault is selected.
+// The demonstration clock runs at 10x wall time; 120 model seconds = ~12 real seconds.
+function updateEctMismatchDetection(dt){
+  if(dt<=0 || !state.engineOn || state.manual)return;
+  const mismatch=state.metalTemp-state.ect;
+  if(mismatch>=20){
+    state.ectMismatchDuration+=dt;
+    if(state.ectMismatchDuration>=120)state.checkEngineDetected=true;
+  }else if(mismatch<12){
+    state.ectMismatchDuration=Math.max(0,state.ectMismatchDuration-2*dt);
+    // Keep the light latched during the fault; it clears when the fault is removed/reset.
+  }
+}
+// The degas bottle remains relatively cool during cold warm-up, then its
+// liquid is heated more rapidly by the small circulating bleed/makeup flow
+// once the radiator circuit is open. Approximate teaching model (not a
+// universal characteristic of every pressurized reservoir arrangement).
+function updateBottleTemp(dt){
+ if(dt<=0)return;
+ const ambient=+$('ambient').value;
+ const opening=thermostat();
+ const running=state.engineOn;
+ // When open, target the engine's circulating coolant temperature; the
+ // bottle-to-lower-hose supply is colored using this same bottle temperature.
+ const coldTarget=ambient+Math.max(0,state.temp-ambient)*.22;
+ const engineTarget=Math.max(state.temp,Math.min(headOutletTemp(),state.temp+7));
+ const coupling=Math.pow(opening,.75);
+ const target=running?lerp(coldTarget,engineTarget,coupling*.98):ambient;
+ // Fast response only when the thermostat actually opens; still gradual.
+ // Times are simulated seconds (10 simulated seconds per real second).
+ const tau=running?lerp(920,55,coupling):1200;
+ const resistance=($('fault').value==='coolant'||$('fault').value==='bleed')?2.3:1;
+ const alpha=1-Math.exp(-dt/(tau*resistance));
+ state.bottleTemp=clamp(state.bottleTemp+(target-state.bottleTemp)*alpha,ambient,175);
+}
+// Continuous multihue temperature ramp: cool blues -> yellow-gold -> orange -> red.
+// This is a VISUAL teaching scale, not a chemical indication of real coolant hue.
+const coolantStops=[
+ [0,[31,96,207]], [25,[44,148,238]], [45,[51,188,243]],
+ [60,[64,205,235]], [75,[115,210,198]], [83,[207,204,112]],
+ [90,[244,184,64]], [98,[251,144,50]], [106,[249,108,43]],
+ [114,[236,75,49]], [125,[208,43,48]], [175,[157,26,39]]
+];
+function coolantColor(t){
+ t=clamp(Number.isFinite(t)?t:20,0,175);
+ for(let i=0;i<coolantStops.length-1;i++){
+  const a=coolantStops[i],b=coolantStops[i+1];
+  if(t<=b[0]){
+   const pct=clamp((t-a[0])/(b[0]-a[0]),0,1);
+   return 'rgb('+a[1].map((v,j)=>Math.round(lerp(v,b[1][j],pct))).join(',')+')';
+  }
+ }
+ return 'rgb(157,26,39)';
+}
+// A reverse-flow pump supplies the head from the suction-side mix. With the
+// radiator poppet open, the first half is exactly the lower-hose temperature.
+// At a closed thermostat the pump instead recirculates returning engine coolant.
+function headInletTemp(){return lerp(Math.max(state.radOut,state.temp-3),state.radOut,thermostat());}
+// In this simplified teaching model the heater takeoff is on the hot head outlet.
+// Use one shared thermal value for that junction so their colours never disagree.
+function headOutletTemp(){return lerp(headInletTemp(),state.headMetalTemp,.76);}
+// The descending coolant leaves the combustion-hot head first and continues
+// through the cooler, slower-warming block; it must not suddenly become cold.
+function blockJacketTemp(position){
+ const headOut=headOutletTemp();
+ const blockOut=Math.max(headOut,lerp(headOut,state.metalTemp,.38));
+ return lerp(headOut,blockOut,position);
+}
+function pathTemp(id){
+ if(id==='headFeedFlow')return headInletTemp();
+ // Entire horizontal cylinder-head gallery is one uniformly heated zone.
+ if(id==='jacketHeadInlet'||id==='jacketHeadOutlet'||id==='heaterFeedFlow'||id==='headBleedFlow')return headOutletTemp();
+ if(id==='jacket1')return blockJacketTemp(.18);
+ if(id==='jacket2')return blockJacketTemp(.38);
+ if(id==='jacket3')return blockJacketTemp(.58);
+ if(id==='jacket4')return blockJacketTemp(.78);
+ if(id==='jacketBlock')return blockJacketTemp(1);
+ if(jacketPaths.has(id))return state.metalTemp;
+ if(id==='bottleMakeupFlow')return state.bottleTemp;
+ if(id==='coldRadFlow')return state.radOut;
+ if(id==='hotRadFlow'||id==='radBleedFlow')return state.radIn;
+ if(id==='heaterReturnFlow'){
+  const ambient=+$('ambient').value;
+  if($('fault').value==='heater')return ambient+3;
+  if($('fault').value==='coolant')return ambient+Math.max(0,headOutletTemp()-ambient)*state.heaterAirHeat*.48;
+  return headOutletTemp()-Math.min(18,Math.max(0,headOutletTemp()-ambient)*.17);
+ }
+ return state.temp;
+}
+// Heater core: each fin has a short supply-end zone and a longer lower zone.
+// During restriction, only the top 30 px heat-soaks; the remainder stays near ambient.
+const heaterTopFins=[],heaterLowerFins=[];
+for(let i=0;i<11;i++){
+ const x=113+i*9;
+ for(const [y1,y2,collection] of [[209,237,heaterTopFins],[237,436,heaterLowerFins]]){
+  const l=document.createElementNS('http://www.w3.org/2000/svg','line');
+  l.setAttribute('x1',x);l.setAttribute('x2',x);l.setAttribute('y1',y1);l.setAttribute('y2',y2);
+  l.setAttribute('stroke','#dfb65b');l.setAttribute('stroke-linecap','round');
+  l.setAttribute('stroke-width',i%2?3:5);$('heaterFins').appendChild(l);collection.push(l);
+ }
+}for(let i=0;i<27;i++){const l=document.createElementNS('http://www.w3.org/2000/svg','line');l.setAttribute('x1',1030+i*3.8);l.setAttribute('x2',1030+i*3.8);l.setAttribute('y1',322);l.setAttribute('y2',525);l.setAttribute('stroke',i%2?'#76bdc8':'#d6a555');l.setAttribute('stroke-width',2);$('radFins').appendChild(l)}for(let i=0;i<4;i++){const x=437+i*67;const g=document.createElementNS('http://www.w3.org/2000/svg','g');g.innerHTML=`<rect x="${x-2}" y="318" width="52" height="215" rx="22" fill="#214154" stroke="#92d0ea" stroke-width="4"/><rect x="${x+9}" y="333" width="30" height="185" rx="13" fill="#0b2031" stroke="#b3d6e5" stroke-width="5"/><rect x="${x+13}" y="430" width="23" height="28" rx="5" fill="#b8cbd3"/><path class="headJet" d="M${x+25} 255 V309" stroke="#65cdef" stroke-width="11" stroke-linecap="round"/>`;$('bores').appendChild(g)}for(let i=0;i<7;i++){const b=document.createElementNS('http://www.w3.org/2000/svg','path');b.setAttribute('d','M-6 -12 Q21 -50 40 -28 Q47 -12 9 8Z');b.setAttribute('fill','#adcbd8');b.setAttribute('stroke','#e2eff1');b.setAttribute('stroke-width','2');b.setAttribute('transform',`rotate(${i*360/7})`);$('fanBlades').appendChild(b)}for(let i=0;i<5;i++){const b=document.createElementNS('http://www.w3.org/2000/svg','path');b.setAttribute('d','M-5 -9 Q12 -29 30 -16 L13 8Z');b.setAttribute('fill','#86bcd4');b.setAttribute('transform',`rotate(${i*72})`);$('pumpBlades').appendChild(b)}
+const velocities={jacketHeadInlet:()=>1,jacketHeadOutlet:()=>1,jacket1:()=>1,jacket2:()=>1,jacket3:()=>1,jacket4:()=>1,jacketBlock:()=>1,hotRadFlow:()=>thermostat(),coldRadFlow:()=>thermostat(),headFeedFlow:()=>1,heaterFeedFlow:()=>$('fault').value==='heater'?.17:.55,heaterReturnFlow:()=>$('fault').value==='heater'?0:.55,headBleedFlow:()=>.14,radBleedFlow:()=>state.engineOn?.14:(state.shutdownElapsed<100?.055:0),bottleMakeupFlow:()=>.13};
+const flowPhase=Object.fromEntries(paths.map(id=>[id,0]));let visualDelta=0;
+const particles=[];for(const id of paths){const path=$(id);for(let i=0;i<5;i++){const c=document.createElementNS('http://www.w3.org/2000/svg','circle');c.setAttribute('r',jacketPaths.has(id)?2.4:id.includes('Bleed')?2.6:3.4);c.setAttribute('opacity','.8');$('particles').appendChild(c);particles.push({id,path,element:c,phase:i/5})}}
+function gaugeAngle(t){const anchors=[[0,-78],[82,-18],[93,0],[104,18],[110,49],[116,72],[125,78]];t=clamp(t,0,125);for(let i=0;i<anchors.length-1;i++){if(t<=anchors[i+1][0]){const a=anchors[i],b=anchors[i+1];return lerp(a[1],b[1],(t-a[0])/(b[0]-a[0]))}}return 78}
+function gaugeArc(t0,t1,r){const pts=[];for(let t=t0;t<=t1;t+=.5){const a=(gaugeAngle(t)-90)*Math.PI/180;pts.push([270+r*Math.cos(a),208+r*Math.sin(a)])}const a=(gaugeAngle(t1)-90)*Math.PI/180;pts.push([270+r*Math.cos(a),208+r*Math.sin(a)]);return pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(2)+' '+p[1].toFixed(2)).join(' ')}
+$('coldZoneArc').setAttribute('d',gaugeArc(0,82,158));$('warmZoneArc').setAttribute('d',gaugeArc(82,110,158));$('hotZoneArc').setAttribute('d',gaugeArc(110,116,158));$('dangerZoneArc').setAttribute('d',gaugeArc(116,125,158));
+for(let t of [20,50,82,93,104,110,116,125]){const a=(gaugeAngle(t)-90)*Math.PI/180;const line=document.createElementNS('http://www.w3.org/2000/svg','line');line.setAttribute('x1',270+147*Math.cos(a));line.setAttribute('y1',208+147*Math.sin(a));line.setAttribute('x2',270+168*Math.cos(a));line.setAttribute('y2',208+168*Math.sin(a));line.setAttribute('stroke','#f9fcff');line.setAttribute('stroke-width','3.2');$('gaugeTicks').appendChild(line)}
+function setValve(o){$('radiatorPoppet').setAttribute('transform',`translate(0 ${o*4})`);$('bypassPoppet').setAttribute('transform',`translate(0 ${-o*4})`);$('thermoStem').setAttribute('transform',`translate(0 ${-o*2})`);$('thermostatLabel').textContent=`Thermostat ${Math.round(o*100)}% radiator`; $('bypassLabel').textContent=o>.96?'Bypass → inlet: closed':`Bypass → inlet: ${Math.round((1-o)*100)}% open`}
+function faultIsLowCoolant(){return $('fault').value==='coolant'}
+function redraw(){const o=thermostat(),f=fanStage();setValve(o);
+// The heater supply hose reaches normal outlet temperature, but a blocked core
+// heat-soaks only beside the top inlet. Lower fins remain cool due to stagnant coolant.
+const heaterRestricted=$('fault').value==='heater';
+const ambientTemp=+$('ambient').value;
+const supplyTemp=headOutletTemp();
+// Only the restricted-heater fault creates a hot inlet / cold lower-core split.
+// All other modes heat the whole heater matrix uniformly as coolant circulates.
+const normalCoreTemp=ambientTemp+(supplyTemp-ambientTemp)*.90;
+// Low coolant: air can occupy the heater matrix even while the inlet hose is hot.
+// At idle a small amount of intermittent warm coolant may reach the upper matrix;
+// rising RPM in this illustrative fault increases air entrainment and weakens cabin heat.
+const airLockedHeater=$('fault').value==='coolant';
+const topFinTemp=heaterRestricted?lerp(ambientTemp,supplyTemp,.95):
+ airLockedHeater?ambientTemp+(supplyTemp-ambientTemp)*state.heaterAirHeat:normalCoreTemp;
+const bottomFinTemp=heaterRestricted?ambientTemp+2:
+ airLockedHeater?ambientTemp+(supplyTemp-ambientTemp)*state.heaterAirHeat*.37:normalCoreTemp;
+for(const fin of heaterTopFins)fin.setAttribute('stroke',coolantColor(topFinTemp));
+for(const fin of heaterLowerFins)fin.setAttribute('stroke',coolantColor(bottomFinTemp));
+$('heaterTopHeader').setAttribute('stroke',coolantColor(topFinTemp));
+// Degas bottle fluid level. Only the two relevant faults change volume:
+// the weak cap gradually loses coolant after warm-up; low coolant starts nearly empty.
+// In all other conditions retain the original fill height and colour behaviour.
+const bottleFault=$('fault').value;
+const bottleFraction=bottleFault==='coolant' ? .075 :
+  bottleFault==='cap' ? 1-.82*clamp(state.pressureSeverity,0,1) : 1;
+const bottleTop=150-47*bottleFraction;
+$('degasLiquid').setAttribute('d',`M820 ${bottleTop.toFixed(2)} H942 V150 H820Z`);
+$('degasLiquid').setAttribute('fill',coolantColor(state.bottleTemp));$('engineRead').textContent=Math.round(state.metalTemp)+'°C';$('radInRead').textContent=Math.round(state.radIn)+'°C';$('radOutRead').textContent=Math.round(state.radOut)+'°C';$('openRead').textContent=Math.round(o*100)+'%';$('speedRead').textContent=Math.round(state.speed)+' km/h';$('rpmRead').textContent=Math.round(state.rpm).toLocaleString();$('loadRead').textContent=Math.round(state.load)+'%';$('elapsedRead').textContent=Math.floor(state.t/60)+':'+String(Math.floor(state.t%60)).padStart(2,'0');$('ambientRead').textContent=$('ambient').value+'°C';$('tempSet').textContent=Math.round(state.temp)+'°C';if(!state.manual)$('temp').value=Math.round(state.temp);$('flowStatus').textContent=o<.04?'COLD • HEAD → BLOCK → PUMP • BYPASS CIRCULATION':o>.96?'HOT • HEAD → BLOCK → PUMP → UPPER HOSE → RADIATOR':'WARMING • RADIATOR CIRCUIT OPENS AS BYPASS CLOSES';$('systemStatus').textContent=faultIsLowCoolant()?'Low coolant / air pocket simulation':state.temp>=116?'ENGINE DAMAGE RISK':state.temp>=110?'OVERHEATING':faultIsLowCoolant()&&state.temp>=93?'LOW COOLANT • HEAT TRANSFER FAILURE':state.temp>=82&&state.temp<=104?'Normal operating temperature':'Warm-up / elevated temperature';$('systemStatus').classList.toggle('alarm',state.temp>=110);$('fanStatus').textContent='Radiator fan: '+(f===2?'HIGH':f===1?'LOW':'OFF');const fault=$('fault').value;const notes={none:'Normal: both thermostat poppets regulate radiator intake and internal bypass together.',closed:'Complaint: warms normally at first, then overheats as load increases; radiator stays comparatively cold because the lower-hose inlet is blocked while the internal bypass stays open.',open:'Complaint: slow warm-up, weak cabin heat in cold weather, temperature may drop during highway cruising; lower radiator hose begins circulating before operating temperature.',pump:'Complaint: overheating at idle and while driving, possibly little cabin heat and a hot engine with a relatively cool radiator. Fan operation cannot restore coolant circulation.',fan:'Complaint: overheats in stopped traffic or at long idle; usually improves on the highway because ram-air cooling remains. Both commanded fan speeds are inoperative.',restricted:'Complaint: tends to run hot during highway driving, hill climbing or extended load; restricted radiator flow and heat rejection. Hot and cool spots may appear across the core.',coolant:'LOW COOLANT / AIR POCKET: HIGH radiator-fan speed is commanded immediately (teaching fail-safe), but warning lamps are delayed: red coolant light only after the ECT gauge exceeds three-quarters; amber check-engine light after a sustained modeled engine/ECT temperature disagreement. The gauge can misread due to air pockets. Heater-core heat may be weak at idle and turn cold as RPM rises while trapped air interrupts flow.',cap:'Complaint: after warm-up or an extended drive, the system loses its boiling margin; vapour and coolant loss progressively reduce heat transfer and may cause overheating. Pressure-test the cap and system.',bleed:'Complaint: recurrent trapped air, uneven heater output, erratic cooling and gradual overheating after warm-up. The small bleed flow is restricted while air accumulates over time.',heater:'Complaint: poor cabin heat despite an engine at operating temperature; inlet hose hot but the majority of the heater matrix and outlet stay cold. Engine cooling usually remains normal.'};$('faultDescription').textContent=notes[fault];$('coolantLevelLamp').setAttribute('opacity',gaugeAngle(state.ect)>39?'1':'0');$('checkEngineLamp').setAttribute('opacity',state.checkEngineDetected?'1':'0');$('gaugeDigital').textContent=Math.round(state.ect)+'°C';$('gaugeNeedle').setAttribute('transform',`rotate(${gaugeAngle(state.ect)} 270 208)`);$('gaugeDigital').setAttribute('fill',state.ect>=110?'#ff7563':'#f3f8fc');$('gaugeUpper').textContent=Math.round(state.radIn)+'°C';$('gaugeLower').textContent=Math.round(state.radOut)+'°C';$('gaugeAlert').textContent=faultIsLowCoolant()?'':state.ect>=116?'ENGINE DAMAGE RISK':state.ect>=110?'OVERHEATING':state.ect>104?'Elevated temperature':'';
+// Use fault-specific circulation for each circuit, not a global radiator/pump speed.
+for(const id of paths){const el=$(id),rate=velocities[id]()*pathFlowFactor(id);const t=pathTemp(id);el.style.stroke=coolantColor(t);el.style.opacity=rate>.015?Math.max(.15,rate):.015;// Advance dashes from an accumulated phase; never recompute phase from time × changing RPM.
+el.style.animation='none';el.style.strokeDashoffset=String(-flowPhase[id]*30);if(id==='radBleedFlow'){el.classList.toggle('shutdownReverse',!state.engineOn);el.style.stroke=state.engineOn?coolantColor(state.radIn):coolantColor(state.radOut)}}
+for(const p of particles){const rate=velocities[p.id]()*pathFlowFactor(p.id);if(rate<.03){p.element.setAttribute('visibility','hidden');continue}p.element.setAttribute('visibility','visible');const len=p.path.getTotalLength(),progress=(p.id==='radBleedFlow'&&!state.engineOn?1-((p.phase+flowPhase[p.id])%1):((p.phase+flowPhase[p.id])%1))*len,point=p.path.getPointAtLength(progress);p.element.setAttribute('cx',point.x);p.element.setAttribute('cy',point.y);p.element.setAttribute('fill',coolantColor(pathTemp(p.id)));p.element.setAttribute('opacity',Math.max(.25,rate))}
+document.querySelectorAll('.headJet').forEach(jet=>jet.setAttribute('stroke',coolantColor(headOutletTemp())));$('ventStatus').textContent=state.engineOn?'Radiator vent: small bleed flow toward degas bottle (engine running).':state.shutdownElapsed<100?'Engine off: brief reverse flow toward radiator during cooldown (illustrative).':'Engine off: vent flow has settled.';$('fanRotor').setAttribute('transform',`translate(1082 414) rotate(${state.fanAngle})`);$('pumpRotor').setAttribute('transform',`translate(776 390) rotate(${state.pumpAngle})`);}
+function tick(now){if(!tick.last)tick.last=now;const seconds=clamp((now-tick.last)/1000,0,.07);tick.last=now;
+// Keep coolant position continuous through every gear/RPM and fan-speed change.
+if(state.running){const pumpFraction=state.engineOn?clamp(state.rpm/2250,.27,2.2):0;for(const id of paths){const enabled=velocities[id]();const active=enabled*pathFlowFactor(id);const speedFactor=id.includes('Bleed')||id==='bottleMakeupFlow'?1:pumpFraction;flowPhase[id]=(flowPhase[id]+seconds*.36*active*speedFactor)%1;}}
+const dt=state.running?seconds*20:0; /* V39: 2x training simulation clock */if(state.running){state.t+=dt;if(state.engineOn){state.driveTime+=dt;driving(dt);
+// Local heater-core thermal inertia under a low-coolant/air-pocket fault.
+// Small intermittent idle heat, cooling rapidly on acceleration; independently
+// approaches normal heater-core behaviour when the fault is cleared.
+const lowHeater=$('fault').value==='coolant';
+const idleFactor=1-clamp((state.rpm-850)/850,0,1);
+const heaterHeatTarget=lowHeater?(.025+.42*idleFactor):.90;
+state.heaterAirHeat+= (heaterHeatTarget-state.heaterAirHeat)*Math.min(1,dt*(heaterHeatTarget<state.heaterAirHeat?.13:.085));
+state.airSeverity=$('fault').value==='bleed'?clamp(state.airSeverity+dt/430,0,1):0;heatStep(dt);const stage=fanStage();state.fanAngle+=seconds*(stage===2?470:stage===1?210:0);if($('fault').value!=='pump')state.pumpAngle+=seconds*state.rpm*.14; /* Failed impeller remains stationary */}else{state.shutdownElapsed+=dt;const amb=+$('ambient').value;state.temp+= (amb-state.temp)*Math.min(1,dt*.0007);state.radIn+=(amb-state.radIn)*Math.min(1,dt*.001);state.radOut+=(amb-state.radOut)*Math.min(1,dt*.001);}}updateThermalReadings(state.running?dt:0);updateEctMismatchDetection(dt);updateBottleTemp(dt);redraw();requestAnimationFrame(tick)}
+function setManual(){state.manual=true;$('manualMode').classList.add('active');$('autoMode').classList.remove('active')}
+$('manualMode').onclick=()=>{setManual();state.temp=+$('temp').value};$('temp').oninput=e=>{setManual();state.temp=+e.target.value;state.metalTemp=state.temp;state.headMetalTemp=state.temp;state.ect=state.temp;state.radIn=state.temp-2;state.radOut=state.temp-Math.min(23,Math.max(0,state.temp-20)*.19)};$('autoMode').onclick=()=>{state.manual=false;$('autoMode').classList.add('active');$('manualMode').classList.remove('active')};$('enginePower').onclick=()=>{state.engineOn=!state.engineOn;state.shutdownElapsed=0;$('enginePower').textContent=state.engineOn?'Engine OFF':'Start engine';};$('pause').onclick=()=>{state.running=!state.running;$('pause').textContent=state.running?'Pause':'Resume'};$('reset').onclick=()=>{state.temp=20;state.bottleTemp=20;state.metalTemp=20;state.headMetalTemp=20;state.ect=20;state.airSeverity=0;state.pressureSeverity=0;state.faultElapsed=0;state.lastFault='none';state.ectMismatchDuration=0;state.checkEngineDetected=false;state.radIn=20;state.radOut=20;state.t=0;state.driveTime=0;state.manual=false;state.running=true;state.fanStage=0;state.fanAngle=0;state.pumpAngle=0;state.engineOn=true;state.shutdownElapsed=0;$('enginePower').textContent='Engine OFF';$('fault').value='none';$('autoMode').click();$('pause').textContent='Pause'};$('fault').onchange=()=>$('autoMode').click();scenario.onchange=()=>{state.driveTime=0;$('custom').hidden=scenario.value!=='custom'};for(const key of ['rpm','speed','load'])$(key).addEventListener('input',()=>{$(key+'Set').textContent=$(key).value+(key==='speed'?' km/h':key==='load'?'%':' RPM')});driving(.016);redraw();requestAnimationFrame(tick);
+</script></body></html>
