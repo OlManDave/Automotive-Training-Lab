@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HVAC Simulator</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,sans-serif;background:#10171e;color:#edf4f7}
+*{box-sizing:border-box}body{margin:0}main{max-width:1320px;margin:auto;padding:24px}h1{font-size:clamp(22px,4vw,34px);margin:0}p{color:#acbdc8;margin:8px 0 16px}.layout{display:grid;grid-template-columns:minmax(0,1fr) 255px;gap:16px}.card{background:#17242f;border:1px solid #344858;border-radius:14px;padding:16px}figure{margin:0;align-self:start}svg{display:block;width:100%;height:auto;background:#101b24;border-radius:10px}fieldset{border:0;padding:0;margin:0 0 18px}legend{font-weight:700;margin-bottom:7px}.buttons{display:flex;flex-wrap:wrap;gap:5px}button{background:#223747;color:#e9f0f5;border:1px solid #577185;border-radius:7px;padding:7px 9px;font:inherit;cursor:pointer}button[aria-pressed=true]{background:#b2e5f0;color:#10212a;border-color:#b2e5f0}button:focus-visible,input:focus-visible{outline:2px solid #ffda8c;outline-offset:3px}input{width:100%;accent-color:#b2e5f0}.ends{display:flex;justify-content:space-between;font-size:.8rem;color:#c0d0da}.readout{font-size:.88rem;color:#c2d5df;line-height:1.55;margin-bottom:0}figcaption{font-size:.86rem;color:#aebec9;margin-top:12px}.housing{fill:#2b3942;stroke:#7c909b;stroke-width:3}.wall{fill:none;stroke:#91a5b1;stroke-width:5;stroke-linejoin:round;stroke-linecap:round}.label{fill:#e8f2f6;font-size:16px;font-weight:750;text-anchor:middle;paint-order:stroke;stroke:#101b24;stroke-width:3px}.small{font-size:13px;font-weight:550}.seat{fill:#17242f;stroke:#ffdfaa;stroke-width:2}.door{fill:#ead0a0;stroke:#523e27;stroke-width:2}.hinge{fill:#f9e7be;stroke:#4c3b29;stroke-width:2}.flow{pointer-events:none}@media(max-width:850px){.layout{grid-template-columns:1fr}main{padding:12px}}
+
+.faults{border-top:1px solid #344858;margin-top:16px;padding-top:14px}.faults summary{cursor:pointer;font-weight:750}.fault-grid{display:grid;gap:8px;margin:12px 0}.fault-grid label{display:grid;gap:4px;font-size:.85rem}.fault-grid label.check{display:flex;align-items:center;gap:7px}.fault-grid input{width:auto}.fault-grid select{width:100%;padding:5px;background:#223747;color:inherit;border:1px solid #577185;border-radius:5px;font:inherit}
+</style>
+<main>
+<h1>HVAC Simulator</h1>
+<p>Air intake, temperature blend and two-door outlet control</p>
+<div class="layout">
+<figure class="card">
+<svg viewBox="0 0 1000 490" role="img" aria-label="Cutaway showing a shared intake, blower, evaporator, heater bypass and a common distribution chamber with two mode doors.">
+<defs>
+<pattern id="fins" width="7" height="7" patternUnits="userSpaceOnUse"><path d="M0 0L7 7M-3 4L3 10" fill="none" stroke="#d5e3e9" stroke-width="1" opacity=".55"/></pattern>
+<linearGradient id="case" x2="0" y2="1"><stop stop-color="#233746"/><stop offset="1" stop-color="#344a56"/></linearGradient>
+</defs>
+<!-- The uninterrupted cavity is drawn as a single outline. Divider walls create the internal passages. -->
+<path class="housing" fill="url(#case)" d="M38 123H116V49H185V123H204Q245 123 245 170V202H294Q321 183 350 183H526Q580 183 627 233L652 255H706V188H649V108H740V73H812V166H855Q892 166 892 209V222H952V277H882Q860 277 850 309L839 337Q823 374 773 374H664Q619 374 592 405Q574 428 536 428H418Q381 428 365 399Q350 369 301 324H251Q225 374 174 374Q102 374 79 312Q61 272 89 231Q106 210 116 192H38"/>
+<path class="wall" d="M38 123H116V49M185 49V123H204Q245 123 245 170V202H294Q321 183 350 183H526Q580 183 627 233L652 255H706V188H649M649 108H740V73M812 73V166H855Q892 166 892 209V222H952M952 277H882Q860 277 850 309L839 337Q823 374 773 374H664Q619 374 592 405Q574 428 536 428H418Q381 428 365 399Q350 369 301 324H251Q225 374 174 374Q102 374 79 312Q61 272 89 231Q106 210 116 192H38"/>
+<!-- Blend separator and outlet door seats. -->
+<path class="wall" d="M463 303H523Q560 303 594 275M394 228V183M395 379L365 399M706 188H740M812 108H820M812 252Q840 277 882 277"/>
+<g class="seat"><circle cx="185" cy="123" r="4"/><circle cx="116" cy="192" r="4"/><circle cx="394" cy="228" r="4"/><circle cx="395" cy="379" r="4"/><circle cx="820" cy="108" r="4"/><circle cx="729" cy="188" r="4"/><circle cx="740" cy="188" r="4"/><circle cx="812" cy="252" r="4"/></g>
+<path d="M105 284a66 66 0 0 0 124 27" fill="none" stroke="#7d95a5" stroke-width="4"/>
+<g transform="translate(169 279)"><g id="fan"><circle r="49" fill="#12232f" stroke="#7695a6" stroke-width="3"/><g id="blades"></g><circle r="10" fill="#adc5d0"/></g></g>
+<g><rect x="270" y="203" width="45" height="120" rx="4" fill="#2a6379" stroke="#a1d2e2" stroke-width="3"/><rect x="275" y="208" width="35" height="110" fill="url(#fins)"/></g>
+<g transform="rotate(-16 475 355)"><rect x="453" y="320" width="44" height="70" rx="4" fill="#8b4d3a" stroke="#f1b091" stroke-width="3"/><rect x="458" y="325" width="34" height="60" fill="url(#fins)"/></g>
+<g transform="translate(116 123)"><g id="recirc"><rect class="door" x="0" y="-6" width="69" height="12" rx="3"/><circle class="hinge" r="8"/></g></g>
+<g transform="translate(463 303)"><g id="blendDoor"><rect class="door" x="0" y="-6" width="102" height="12" rx="3"/><circle class="hinge" r="8"/></g></g>
+<g transform="translate(740 108)"><g id="faceDoor"><rect class="door" x="0" y="-6" width="80" height="12" rx="3"/><circle class="hinge" r="8"/></g></g>
+<g transform="translate(812 166)"><g id="footDoor"><rect class="door" x="0" y="-6" width="86" height="12" rx="3"/><circle class="hinge" r="8"/></g></g>
+<g fill="none" stroke="none">
+<path id="fresh" d="M35 158H106Q165 158 169 217"/>
+<path id="cabin" d="M151 47V141Q151 189 169 217"/>
+<path id="shared" d="M169 217V279Q200 302 239 263H338Q366 263 378 260"/>
+<path id="cold" d="M378 260H532Q578 257 617 291Q639 315 667 315"/>
+<path id="heaterIn" d="M378 260Q409 263 414 305L429 344Q438 365 458 359L475 355"/>
+<path id="hot" d="M475 355L516 346Q562 340 602 326Q636 315 667 315"/>
+<path id="toFace" d="M667 315Q741 285 754 218V171Q754 151 732 151H649"/>
+<path id="toFoot" d="M667 315Q739 303 778 263Q795 235 824 234Q850 237 875 250H952"/>
+<path id="toDefrost" d="M667 315Q733 287 748 235V211Q748 187 763 170Q776 153 776 126V73"/>
+</g>
+<g id="particles" class="flow"></g>
+<g class="label">
+<text x="69" y="109">Fresh air</text><text x="151" y="36">Cabin air</text>
+<text x="161" y="399">Blower motor</text><text x="289" y="350">Evaporator</text>
+<text x="484" y="217">Cold bypass</text><text x="499" y="411">Heater core</text>
+<text x="367" y="320" class="small">Blend door</text><text x="664" y="350">Mixing chamber</text>
+<text x="692" y="96">Face</text><text x="776" y="58">Defrost</text><text x="922" y="206">Foot</text>
+<text x="735" y="204" class="small">Face door</text><text x="861" y="151" class="small">Foot door</text>
+</g>
+</svg>
+<figcaption>Cutaway based on the supplied photos and marked-up door and housing positions. Blue traces the heater bypass, red traces air warmed by the heater core, and grey marks incoming air. Component spacing and door angles are schematic.</figcaption>
+</figure>
+<section class="card" aria-label="HVAC controls">
+<fieldset><legend>Blower</legend><div class="buttons" id="speed"></div></fieldset>
+<fieldset><legend>Air source</legend><div class="buttons" id="source"></div></fieldset>
+<fieldset><legend><label for="blend">Temperature blend <output id="heat">0%</output></label></legend><input id="blend" type="range" min="0" max="100" value="0"><div class="ends"><span>Full cold</span><span>Full hot</span></div></fieldset>
+<fieldset><legend>Outlet mode</legend><div class="buttons" id="mode"></div></fieldset>
+<p id="description" class="readout" aria-live="polite"></p>
+<p id="actual" class="readout"></p>
+<details class="faults">
+<summary>Fault controls</summary>
+<div class="fault-grid">
+<label class="check"><input id="lowCoolant" type="checkbox"> Low coolant</label>
+<label class="check"><input id="cloggedCore" type="checkbox"> Clogged heater core</label>
+<label>Blend door actuator<select id="blendFault"><option value="">Normal</option><option value="0">Stuck full cold</option><option value="0.5">Stuck mid temperature</option><option value="1">Stuck full hot</option></select></label>
+<label>Mode doors<select id="modeFault"><option value="">Normal</option></select></label>
+<label>Recirc door<select id="recircFault"><option value="">Normal</option><option value="open">Stuck open to outside air</option><option value="cycle">Closes and reopens repeatedly</option></select></label>
+<label class="check"><input id="resistorFault" type="checkbox"> Blower resistor fault (high only)</label>
+</div>
+<button id="clearFaults" type="button">Clear faults</button>
+</details>
+</section>
+</div>
+</main>
+<script>
+'use strict';
+const get = id => document.getElementById(id);
+const ns = 'http://www.w3.org/2000/svg';
+const modes = {
+  face: {label:'Face', face:0, foot:90, vents:['toFace'], note:'Face door blocks defrost. Foot door closes the floor opening.'},
+  faceFoot: {label:'Face + Foot', face:0, foot:125, vents:['toFace','toFoot'], note:'Face door blocks defrost. Foot door opens halfway.'},
+  foot: {label:'Foot', face:90, foot:165, vents:['toFoot'], note:'Face door closes the face opening. Foot door swings fully up to block defrost.'},
+  footDefrost: {label:'Foot + Defrost', face:90, foot:125, vents:['toFoot','toDefrost'], note:'Face door closes the face opening. Foot door opens halfway.'},
+  defrost: {label:'Defrost', face:90, foot:90, vents:['toDefrost'], note:'Face and foot doors close their respective openings. Defrost is open.'}
+};
+const state = {speed:'2',source:'fresh',mode:'face',blend:0};
+const faults = {lowCoolant:false,cloggedCore:false,blendFault:'',modeFault:'',recircFault:'',resistorFault:false};
+let recircTime=0;
+const groups = {
+  speed:{0:'Off',1:'Low',2:'Med',3:'High'},
+  source:{fresh:'Fresh',cabin:'Recirc'},
+  mode:Object.fromEntries(Object.entries(modes).map(([key,value])=>[key,value.label]))
+};
+for(const [name,choices] of Object.entries(groups)){
+  for(const [value,label] of Object.entries(choices)){
+    const button=document.createElement('button');
+    button.type='button';
+    button.dataset.value=value;
+    button.textContent=label;
+    button.onclick=()=>{state[name]=value; update();};
+    get(name).append(button);
+  }
+}
+for(const [key,mode] of Object.entries(modes)){
+  const option=document.createElement('option');
+  option.value=key;
+  option.textContent='Stuck in '+mode.label;
+  get('modeFault').append(option);
+}
+for(const key of Object.keys(faults)){
+  const control=get(key);
+  control.onchange=()=>{
+    faults[key]=control.type==='checkbox'?control.checked:control.value;
+    if(key==='recircFault')recircTime=0;
+    update();
+  };
+}
+get('clearFaults').onclick=()=>{
+  for(const key of Object.keys(faults)){
+    const control=get(key);
+    if(control.type==='checkbox')control.checked=false;
+    else control.value='';
+    control.onchange();
+  }
+};
+function actualSettings(){
+  const cycling=faults.recircFault==='cycle'&&state.source==='cabin';
+  return {
+    cycling,
+    source:faults.recircFault==='open'||(cycling&&recircTime%1.8>=0.9)?'fresh':state.source,
+    speed:faults.resistorFault&&state.speed!=='3'?0:Number(state.speed),
+    mode:modes[faults.modeFault||state.mode],
+    blend:faults.blendFault===''?state.blend:Number(faults.blendFault),
+    coreHeats:!(faults.lowCoolant||faults.cloggedCore)
+  };
+}
+function showActual(actual){
+  const core=faults.lowCoolant&&faults.cloggedCore?'low coolant and restricted coolant flow':
+    faults.lowCoolant?'low coolant, core stays cool':
+    faults.cloggedCore?'restricted coolant flow, core stays cool':'normal coolant flow';
+  const air=actual.source==='fresh'?'fresh':'recirc';
+  const heat=actual.speed===0?'no delivery':actual.blend>0&&actual.coreHeats?'heating':'no heat rise';
+  const message='Actual · '+groups.speed[actual.speed]+' blower · '+air+' intake · '+actual.mode.label+
+    ' outlets · '+Math.round(actual.blend*100)+'% heater path · '+heat+'. Heater core · '+core+'.';
+  const readout=get('actual');
+  if(readout.textContent!==message)readout.textContent=message;
+}
+get('blend').oninput=event=>{state.blend=Number(event.target.value)/100;update();};
+function update(){
+  for(const name of Object.keys(groups)){
+    for(const button of get(name).children){
+      button.setAttribute('aria-pressed',String(button.dataset.value===state[name]));
+    }
+  }
+  get('heat').textContent=Math.round(state.blend*100)+'% heat';
+  if(state.source==='fresh')recircTime=0;
+  const actual=actualSettings();
+  get('description').textContent=actual.cycling?
+    'Recirc requested. The door closes the cowl, reopens it, and repeats. '+actual.mode.note:actual.mode.note;
+  showActual(actual);
+}
+function makeSvg(tag,attributes,parent){
+  const node=document.createElementNS(ns,tag);
+  for(const [key,value] of Object.entries(attributes))node.setAttribute(key,value);
+  parent.append(node);
+  return node;
+}
+for(let i=0;i<15;i++){
+  makeSvg('path',{d:'M-4 -15Q-21 -29 -13 -42L-4 -46Q-9 -30 5 -17Z',fill:'#708b9b',transform:'rotate('+i*24+')'},get('blades'));
+}
+const segments=Object.fromEntries(['fresh','cabin','shared','cold','heaterIn','hot','toFace','toFoot','toDefrost'].map(id=>{
+  const path=get(id), length=path.getTotalLength(), count=Math.ceil(length/20);
+  return [id,{path,length,dots:Array.from({length:count},()=>makeSvg('circle',{r:3.2},get('particles')))}];
+}));
+const angles={recirc:0,blendDoor:132,faceDoor:0,footDoor:90};
+let last=0,distance=0,rotation=0;
+function draw(now){
+  const dt=Math.min(0.05,(now-(last||now))/1000);
+  last=now;
+  const actual=actualSettings();
+  if(actual.cycling)recircTime+=dt;
+  const {speed,mode,blend,source,coreHeats}=actual;
+  if(actual.cycling)showActual(actual);
+  const target={recirc:source==='fresh'?0:90,blendDoor:132+94*blend,faceDoor:mode.face,footDoor:mode.foot};
+  let moving=false;
+  for(const id of Object.keys(angles)){
+    const delta=target[id]-angles[id];
+    angles[id]+=Math.sign(delta)*Math.min(Math.abs(delta),dt*340);
+    moving ||= Math.abs(target[id]-angles[id])>1;
+    get(id).setAttribute('transform','rotate('+angles[id]+')');
+  }
+  distance+=dt*speed*48;
+  rotation=(rotation+dt*speed*180)%360;
+  get('fan').setAttribute('transform','rotate('+rotation+')');
+  const weights={fresh:Number(source==='fresh'),cabin:Number(source==='cabin'),shared:1,cold:1-blend,heaterIn:blend,hot:blend};
+  const heaterColor=coreHeats?[255,104,83]:[201,211,218];
+  const bypassColor=[83,173,255];
+  const mixed='rgb('+bypassColor.map((channel,i)=>Math.round(channel*(1-blend)+heaterColor[i]*blend)).join(',')+')';
+  for(const vent of mode.vents)weights[vent]=1/mode.vents.length;
+  const colors={fresh:'#c9d3da',cabin:'#c9d3da',shared:'#c9d3da',cold:'#53adff',heaterIn:'#c9d3da',hot:coreHeats?'#ff6853':'#c9d3da'};
+  for(const [id,{path,length,dots}] of Object.entries(segments)){
+    const alpha=speed&&!moving?Math.min(1,(weights[id]||0)*1.55):0;
+    dots.forEach((dot,i)=>{
+      dot.style.opacity=alpha;
+      if(!alpha)return;
+      const point=path.getPointAtLength((distance+i*length/dots.length)%length);
+      dot.setAttribute('cx',point.x);
+      dot.setAttribute('cy',point.y);
+      dot.setAttribute('fill',colors[id]||mixed);
+    });
+  }
+  requestAnimationFrame(draw);
+}
+update();
+requestAnimationFrame(draw);
+</script>
+</html>
