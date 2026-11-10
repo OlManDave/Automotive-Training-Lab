@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EVAP Purge Solenoid Simulator</title>
+<style>
+:root{color-scheme:dark;font:16px system-ui,sans-serif;background:#10171e;color:#edf4f7;--muted:#b6c7d3;--border:#344858;--cyan:#a6e9f4}
+*{box-sizing:border-box}body{margin:0}main{max-width:1300px;margin:auto;padding:22px}h1{margin:4px 0;font-size:clamp(25px,4vw,38px)}h2{font-size:1rem;margin:0 0 10px}p{margin:7px 0;color:var(--muted);line-height:1.45}.eyebrow{color:var(--cyan);font-size:.76rem;font-weight:750;letter-spacing:.12em}.layout{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:14px;margin-top:17px}.card{background:#17242f;border:1px solid var(--border);border-radius:14px;padding:14px;min-width:0}figure{margin:0}svg{display:block;width:100%;height:auto;border-radius:9px;background:#101b24}figcaption,small{color:var(--muted);font-size:.82rem}figcaption{margin-top:9px}.buttons{display:grid;grid-template-columns:1fr 1fr;gap:6px}button{font:inherit;font-size:.92rem;color:#edf4f7;background:#223747;border:1px solid #577185;border-radius:7px;padding:8px;cursor:pointer}button:last-child{grid-column:1/-1}button[aria-pressed=true]{background:var(--cyan);color:#14232c;border-color:var(--cyan);font-weight:700}button:focus-visible,input:focus-visible{outline:2px solid #ffda8c;outline-offset:3px}.setting{margin:13px 0;display:block}output{float:right;color:var(--cyan);font-weight:bold}input[type=range]{width:100%;accent-color:var(--cyan);margin:7px 0}input:disabled{opacity:.4}.readouts{margin:12px 0;font-size:.86rem}.readouts div{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)}dt{color:var(--muted)}dd{margin:0;font-weight:700;text-align:right}.scope{margin-top:14px}.note{font-size:.84rem}.call{stroke:#a6bccb;stroke-width:1.3;fill:none}.label{fill:#e5f1fa;font-size:15px;font-weight:700}.sub{fill:#b6c7d3;font-size:13px}.wire{fill:none;stroke-width:5;stroke-linejoin:round;stroke-linecap:round}.flow{fill:none;stroke:#6de4e6;stroke-width:4;stroke-dasharray:3 12;stroke-linecap:round;animation:flow .8s linear infinite}@keyframes flow{to{stroke-dashoffset:-30}}@media(prefers-reduced-motion:reduce){.flow{animation:none}}@media(max-width:790px){.layout{grid-template-columns:1fr}.diagram{overflow:auto}.diagram svg{min-width:590px}} 
+</style>
+</head>
+<body>
+<main>
+<div class="eyebrow">310S AUTOMOTIVE TRAINING · ENGINE MANAGEMENT</div>
+<h1>EVAP Purge Solenoid Simulator</h1>
+<p>Watch the PCM switch the coil ground and see how the valve meters vapor from the charcoal canister to the intake manifold.</p>
+<div class="layout">
+<section class="card">
+<figure>
+<div class="diagram">
+<svg viewBox="0 0 860 520" role="img" aria-labelledby="diagramTitle diagramDesc">
+<title id="diagramTitle">Cutaway of a normally closed EVAP purge solenoid</title>
+<desc id="diagramDesc">A fused 12 volt feed and PCM ground control connect to the coil. The coil pulls a steel plunger upward against a spring, lifting a rubber seal from the valve seat and allowing vapor to travel from the canister to the manifold.</desc>
+<defs>
+<linearGradient id="plastic"><stop stop-color="#141e26"/><stop offset=".28" stop-color="#485562"/><stop offset=".55" stop-color="#293642"/><stop offset="1" stop-color="#111922"/></linearGradient>
+<linearGradient id="metal"><stop stop-color="#465866"/><stop offset=".42" stop-color="#d5e3ec"/><stop offset=".66" stop-color="#99adb9"/><stop offset="1" stop-color="#4a5b66"/></linearGradient>
+<linearGradient id="copper" x2="0" y2="1"><stop stop-color="#ffd09d"/><stop offset=".42" stop-color="#b56638"/><stop offset="1" stop-color="#663619"/></linearGradient>
+<pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24 0H0V24" stroke="#1b2b36" fill="none"/></pattern>
+<pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(40)"><path d="M0 0V6" stroke="#758996" stroke-width="2"/></pattern>
+<pattern id="windings" width="6" height="7" patternUnits="userSpaceOnUse"><rect width="6" height="6" rx="2" fill="url(#copper)"/></pattern>
+<marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4 0 8Z" fill="#6de4e6"/></marker>
+</defs>
+<rect width="860" height="520" fill="url(#grid)"/>
+<!-- Wiring and two-pin connector -->
+<path class="wire" d="M104 65H168M222 65H384V130" stroke="#f38179"/>
+<rect x="168" y="53" width="54" height="24" rx="5" fill="#402e30" stroke="#f38179"/><path d="M177 65h10l4-4h8l4 4h10" fill="none" stroke="#f38179" stroke-width="2"/>
+<text x="168" y="45" class="sub">Fuse</text>
+<rect x="30" y="47" width="74" height="36" rx="6" fill="#23333f" stroke="#748898"/><text x="67" y="70" text-anchor="middle" class="label">+12 V</text>
+<path id="controlWire" class="wire" d="M426 130V65H662" stroke="#7198b3"/>
+<text x="482" y="51" class="sub">PCM low-side control</text>
+<rect x="662" y="33" width="167" height="110" rx="10" fill="#1d2d39" stroke="#667e90"/>
+<text x="745" y="53" text-anchor="middle" class="label">PCM DRIVER</text>
+<path d="M662 65H721M721 106V115m-13 0h26m-22 5h18m-14 5h10" class="call"/>
+<path id="switch" d="M721 65l18 31" stroke="#b4c7d3" stroke-width="3" stroke-linecap="round"/>
+<circle cx="721" cy="65" r="4" fill="#d4e4ef"/><circle cx="721" cy="106" r="4" fill="#d4e4ef"/>
+<text id="driverText" x="761" y="93" class="sub">OFF</text>
+<path d="M360 114H449V170H360Z" fill="url(#plastic)" stroke="#8193a0" stroke-width="2"/>
+<path d="M367 114v-8h74v8M374 129h62v28h-62z" fill="#1a242d" stroke="#788c9a"/>
+<path d="M384 128v29m42-29v29" stroke="#d7bc87" stroke-width="5"/>
+<!-- Housing and molded hose fittings -->
+<path d="M323 159h181q21 0 23 24v135l24 14h143v52H538v27q0 34-32 44H314q-26-7-26-32H129v-51h158v-37l21-16V184q0-19 15-25Z" fill="url(#plastic)" stroke="#91a5b2" stroke-width="2.5"/>
+<path d="M317 178h20v144l-26 21v65h-21v-69l27-23Zm190 0h12v144l22 15h143v12H534l-27-17Z" fill="url(#hatch)" opacity=".7"/>
+<path d="M130 367h15v61h-15zm22 0h13v61h-13zm519-39h13v60h-13zm22 0h13v60h-13z" fill="url(#plastic)" stroke="#758895"/>
+<path d="M130 384h209q19 0 27 16l6 11h34v-29h-37v-38h100l29 6h207v17H498l-31 15h-30v48h-71l-15-19q-6-8-18-8H130z" fill="#102632" stroke="#678391" stroke-width="2"/>
+<path d="M337 188q0-10 10-10h144q10 0 10 10v145H337z" fill="#243541" stroke="#8298a6" stroke-width="2"/>
+<path d="M349 202h50v117h-50zm90 0h50v117h-50z" fill="url(#windings)" stroke="#6e4a36" stroke-width="2"/>
+<path d="M384 157v28h-10v17m52-45v28h38v17" fill="none" stroke="#bc976c" stroke-width="3" stroke-linejoin="round"/>
+<path id="coilGlow" d="M349 202h50v117h-50zm90 0h50v117h-50z" fill="#ffbd73" opacity="0"/>
+<path d="M399 198h40v132h-40z" fill="#101b24" stroke="#a3b4be" stroke-width="3"/>
+<path d="M402 190h34v42h-34z" fill="url(#metal)" stroke="#b6c6ce"/>
+<path d="M407 214h24v18h-24z" fill="#101b24" stroke="#a1b4bf"/>
+<path id="spring" fill="none" stroke="#e5edf2" stroke-width="2.6" stroke-linejoin="round"/>
+<path d="M384 381h22v11h-22zm53 0h25v11h-25z" fill="url(#metal)" stroke="#c1d3db"/>
+<g id="plunger">
+<path d="M406 251h26v77l-6 11v24h-14v-24l-6-11z" fill="url(#metal)" stroke="#b0c2cf" stroke-width="1.5"/>
+<path d="M399 363q0-5 7-5h26q7 0 7 5v12q0 6-6 6h-28q-6 0-6-6Z" fill="#171b1f" stroke="#c48d65" stroke-width="2"/>
+</g>
+<path id="vapors" class="flow" d="M134 394H333Q350 394 365 414H421V379Q421 357 445 357H694" marker-end="url(#arrow)" visibility="hidden"/>
+<!-- Callouts and hose labels -->
+<path class="call" d="M332 247H234l-13-11h-56M414 233l-22-57H259M427 299l80-72h69M452 389l71 41h77"/>
+<text x="165" y="226" class="label">Coil windings</text>
+<text x="259" y="166" class="label">Return spring</text>
+<text x="579" y="223" class="label">Steel plunger</text>
+<text x="603" y="432" class="label">Valve seat</text>
+<path id="sealCallout" class="call" d="M435 371l109 26h54"/>
+<text x="602" y="401" class="label">Rubber seal</text>
+<text x="24" y="354" class="label">FROM CANISTER</text><text x="24" y="372" class="sub">Fuel vapor + air</text>
+<text x="714" y="347" class="label">TO INTAKE</text><text x="714" y="366" class="sub">Manifold vacuum</text>
+<rect x="24" y="464" width="231" height="33" rx="6" fill="#1f303c" stroke="#5a7485"/><text id="valveBadge" x="39" y="486" class="label">VALVE CLOSED</text>
+<text x="835" y="487" text-anchor="end" class="sub">CUTAWAY · GENERIC TWO-PIN VALVE</text>
+</svg>
+</div>
+<figcaption>Manifold vacuum is assumed. The cutaway represents a typical normally closed purge valve.</figcaption>
+</figure>
+<section class="scope" aria-labelledby="scopeHeading">
+<h2 id="scopeHeading">Control wire waveform</h2>
+<div class="diagram">
+<svg viewBox="0 0 860 120" role="img" aria-labelledby="scopeTitle">
+<title id="scopeTitle">Four seconds of PCM control voltage. The coil is on when control voltage is low.</title>
+<path d="M58 29H826M58 77H826" stroke="#476073" stroke-dasharray="4 5"/>
+<path d="M58 18V87m192-69v69m192-69v69m192-69v69m192-69v69" stroke="#344858"/>
+<g class="label">
+<text x="12" y="34">12 V</text><text x="20" y="82">0 V</text>
+</g>
+<g class="sub" text-anchor="middle">
+<text x="58" y="106">0 s</text><text x="250" y="106">1 s</text><text x="442" y="106">2 s</text><text x="634" y="106">3 s</text><text x="826" y="106">4 s</text>
+</g>
+<path id="trace" fill="none" stroke="#94ebee" stroke-width="3" stroke-linejoin="round"/>
+<path id="cursor" d="M58 16V87" stroke="#ffc488" stroke-width="2" visibility="hidden"/>
+</svg>
+</div>
+<p id="pulseTiming" class="note">Coil off continuously.</p>
+<p class="note">The orange cursor follows the live valve in PWM mode. Low voltage means the PCM is grounding the coil. Each simulated cycle lasts 1 second.</p>
+</section>
+</section>
+<aside class="card">
+<h2>Valve command</h2>
+<div class="buttons" aria-label="Valve mode">
+<button type="button" data-mode="closed" aria-pressed="true">Closed</button>
+<button type="button" data-mode="open" aria-pressed="false">Open</button>
+<button type="button" data-mode="pwm" aria-pressed="false">Duty cycled (PWM)</button>
+</div>
+<label class="setting" for="duty">PWM duty cycle <output id="dutyLabel" for="duty">40%</output>
+<input id="duty" type="range" min="0" max="100" step="5" value="40" disabled>
+</label>
+<small>Duty cycle is the percentage of each cycle the PCM grounds the coil.</small>
+<dl class="readouts">
+<div><dt>Coil feed</dt><dd>12 V</dd></div>
+<div><dt>PCM driver</dt><dd id="driverRead">Off</dd></div>
+<div><dt>Control wire</dt><dd id="controlRead">≈12 V</dd></div>
+<div><dt>Coil</dt><dd id="coilRead">De-energized</dd></div>
+<div><dt>Vapor flow</dt><dd id="flowRead">Blocked</dd></div>
+</dl>
+</aside>
+</div>
+</main>
+<script>
+const get = id => document.getElementById(id);
+const buttons = [...document.querySelectorAll('[data-mode]')];
+const duty = get('duty');
+const cycleMs = 1000;
+const visibleCycles = 4;
+const cycleWidth = 192;
+const traceStart = 58;
+let mode = 'closed';
+let start = performance.now();
+let lift = 0;
+let lastFrame = start;
+let previousState;
+
+function updateElectrical(on) {
+  get('driverText').textContent = on ? 'ON' : 'OFF';
+  get('driverRead').textContent = on ? 'On · grounded' : 'Off · open';
+  get('controlRead').textContent = on ? '≈0 V' : '≈12 V';
+  get('coilRead').textContent = on ? 'Energized' : 'De-energized';
+  get('controlWire').setAttribute('stroke', on ? '#a6e9f4' : '#7198b3');
+  get('switch').setAttribute('d', on ? 'M721 65V106' : 'M721 65l18 31');
+  get('coilGlow').setAttribute('opacity', on ? '.37' : '0');
+}
+function updateCommand() {
+  duty.disabled = mode !== 'pwm';
+  const ratio = Number(duty.value) / 100;
+  get('dutyLabel').value = duty.value + '%';
+  const end = traceStart + cycleWidth * visibleCycles;
+  const alwaysOn = mode === 'open' || (mode === 'pwm' && ratio === 1);
+  let trace = 'M' + traceStart + ' ' + (alwaysOn ? 77 : 29) + 'H' + end;
+  let timing = alwaysOn ? 'Coil on continuously.' : 'Coil off continuously.';
+  if (mode === 'pwm') {
+    if (ratio > 0 && ratio < 1) {
+      trace = 'M' + traceStart + ' 77';
+      for (let cycle = 0; cycle < visibleCycles; cycle++) {
+        const pulseEnd = traceStart + (cycle + ratio) * cycleWidth;
+        const cycleEnd = traceStart + (cycle + 1) * cycleWidth;
+        trace += 'H' + pulseEnd + 'V29H' + cycleEnd;
+        if (cycle < visibleCycles - 1) trace += 'V77';
+      }
+    }
+    const onMs = Math.round(ratio * cycleMs);
+    timing = onMs + ' ms ON · ' + (cycleMs - onMs) + ' ms OFF per cycle';
+  }
+  get('pulseTiming').textContent = timing;
+  get('trace').setAttribute('d', trace);
+  get('cursor').setAttribute('visibility', mode === 'pwm' ? 'visible' : 'hidden');
+}
+function render(now) {
+  const elapsed = Math.max(0, now - start);
+  const phase = (elapsed % cycleMs) / cycleMs;
+  const on = mode === 'open' || (mode === 'pwm' && phase < Number(duty.value) / 100);
+  if (on !== previousState) {
+    updateElectrical(on);
+    previousState = on;
+  }
+  const step = 24 * Math.min(40, Math.max(0, now - lastFrame)) / 40;
+  lift = on ? Math.min(24, lift + step) : Math.max(0, lift - step);
+  lastFrame = now;
+  get('plunger').setAttribute('transform', 'translate(0 ' + -lift + ')');
+  get('sealCallout').setAttribute('d', 'M435 ' + (371 - lift) + 'l109 26h54');
+  let spring = 'M419 216';
+  for (let turn = 1; turn <= 8; turn++) {
+    const x = turn === 8 ? 419 : turn % 2 ? 411 : 427;
+    spring += 'L' + x + ' ' + (216 + (35 - lift) * turn / 8);
+  }
+  get('spring').setAttribute('d', spring);
+  const flowing = lift > 1;
+  get('vapors').setAttribute('visibility', flowing ? 'visible' : 'hidden');
+  get('valveBadge').textContent = flowing ? 'VALVE OPEN' : 'VALVE CLOSED';
+  get('flowRead').textContent = flowing ? 'Toward intake' : 'Blocked';
+  if (mode === 'pwm') {
+    const position = (elapsed % (cycleMs * visibleCycles)) / cycleMs;
+    get('cursor').setAttribute('transform', 'translate(' + cycleWidth * position + ' 0)');
+  }
+  requestAnimationFrame(render);
+}
+for (const button of buttons) {
+  button.addEventListener('click', () => {
+    mode = button.dataset.mode;
+    for (const item of buttons) item.setAttribute('aria-pressed', String(item === button));
+    start = performance.now();
+    updateCommand();
+  });
+}
+duty.addEventListener('input', updateCommand);
+updateCommand();
+requestAnimationFrame(render);
+</script>
+</body>
+</html>
