@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Distributor Simulator</title>
+<style>
+:root{color-scheme:dark;--bg:#0d1723;--panel:#162434;--line:#32495e;--ink:#edf5ff;--muted:#aec2d6;--primary:#51dccc;--high:#ffca72;--field:#ac9bff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,sans-serif}main{max-width:1230px;margin:auto;padding:24px}h1,h2,p{margin:0}h1{font-size:clamp(26px,5vw,43px);line-height:1.15}h2{font-size:20px}.eyebrow{font-size:12px;font-weight:800;letter-spacing:.14em;color:var(--primary)}.intro,.hint,footer{color:var(--muted)}.intro{margin:8px 0 16px}.bar,.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 16px}.bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center}button,select{font:inherit;background:#21374b;color:var(--ink);border:1px solid #46627c;border-radius:8px;padding:6px 12px;cursor:pointer}button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid var(--high);outline-offset:2px}#play{background:var(--primary);color:#082522;font-weight:800;min-width:86px}.speed{margin-left:auto;display:grid;gap:4px}.slow-option{font-size:14px;color:var(--muted)}.replay{margin-top:10px}.replay progress{width:100%;accent-color:var(--field)}.replay-spark{color:var(--high);font-weight:700}.legend{display:flex;gap:18px;flex-wrap:wrap;margin:12px 0 7px;font-size:14px}.legend span::before{content:"";display:inline-block;width:19px;height:4px;background:var(--key);border-radius:3px;vertical-align:middle;margin-right:7px}.diagram{overflow-x:auto;border:1px solid var(--line);border-radius:14px;background:#101e2c}.diagram svg{width:100%;min-width:780px;height:auto;display:block}.row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}.readouts{display:flex;flex-wrap:wrap;gap:7px;margin:8px 0}.readouts span{background:#0e1c2a;border-radius:6px;padding:3px 8px;font-size:14px}.phases{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}.phases button{font-size:13px}.phases [aria-pressed=true]{border-color:var(--high);color:var(--high)}input[type=range]{width:100%;accent-color:var(--primary)}footer{margin-top:12px;font-size:13px}a{color:var(--primary)}svg text{fill:var(--ink);font:600 15px system-ui}svg .small{fill:var(--muted);font-size:12px}svg .heading{fill:var(--primary);letter-spacing:1.1px;font-size:13px}svg .wire{stroke:#607b94;stroke-width:3;fill:none;stroke-linejoin:round;stroke-linecap:round}svg .metal{fill:#68869e;stroke:#a8c3d8;stroke-width:1.5}svg .field{fill:none;stroke:var(--field);stroke-width:2;stroke-dasharray:5 6}svg .current{fill:none;stroke-width:4;stroke-linejoin:round;stroke-linecap:round;stroke-dasharray:5 13;pointer-events:none}.primary{stroke:var(--primary)}.high{stroke:var(--high)}.spark{fill:none;stroke:var(--high);stroke-width:2.5;filter:url(#glow)}svg .hot{fill:var(--high)}.note{font-size:14px;color:var(--muted);margin-top:6px}
+@media(max-width:730px){main{padding:12px}.row{grid-template-columns:1fr}.speed{margin-left:0}}
+</style>
+</head>
+<body><main>
+<header><p class="eyebrow">310S TRAINING LAB · IGNITION</p><h1>Distributor Simulator</h1><p class="intro">Follow one spark from the breaker points, through the ignition coil and rotor, to the correct cylinder.</p></header>
+<div class="bar"><button id="play" type="button">Play</button><button id="step" type="button">Next phase</button><button id="reset" type="button">Reset</button><label>Fault <select id="fault">
+<option value="normal" selected>Normal operation</option>
+<option value="pad">Worn rubbing block</option>
+<option value="lobe">Worn cam lobe · cylinder #1</option>
+<option value="gap">Excessive point gap</option>
+</select></label><div class="speed"><label>Playback <select id="speed"><option value=".5">½×</option><option value="1" selected>1×</option><option value="2">2×</option></select></label><label class="slow-option"><input id="slowSpark" type="checkbox"> Slow-motion secondary event</label></div></div>
+<div class="legend"><span style="--key:var(--primary)">Primary current</span><span style="--key:var(--field)">Magnetic field</span><span style="--key:var(--high)">Secondary ignition event</span></div>
+<div class="diagram" tabindex="0" aria-label="Ignition system diagram. Scroll horizontally on a narrow screen.">
+<svg viewBox="0 0 1120 460" role="img" aria-labelledby="diagramTitle diagramDesc">
+<title id="diagramTitle">Battery, ballast resistor, ignition coil, breaker points and distributor cap</title><desc id="diagramDesc">Battery current goes through the ballast resistor, primary winding and closed points. Opening the points collapses the magnetic field. The coil output goes through the cap centre and rotor to a single spark plug.</desc>
+<defs>
+<linearGradient id="case" x2="0" y2="1"><stop stop-color="#31485f"/><stop offset="1" stop-color="#18293b"/></linearGradient>
+<radialGradient id="cap"><stop stop-color="#28465c"/><stop offset="1" stop-color="#172b3d"/></radialGradient>
+<filter id="glow" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+<g id="ground"><path d="M0 0v8m-10 0h20m-7 4h14m-11 4h8" fill="none" stroke="#92a9bf" stroke-width="2"/></g>
+<g id="plug"><path d="M0 0v9m0 31v6" class="wire"/><rect x="-7" y="8" width="14" height="18" rx="4" fill="#e5ebef"/><path d="M-9 24h18v10H-9z M-5 34h10v6H-5z" class="metal"/><path d="M0 14v32m5-9v14H0" fill="none" stroke="#a4c2d9" stroke-width="2"/><path d="M5 42h13v12" class="wire"/><use href="#ground" x="18" y="54"/></g>
+</defs>
+<text x="25" y="32" class="heading">01 · BATTERY + COIL</text>
+<text x="408" y="32" class="heading">02 · BREAKER POINTS</text>
+<text x="762" y="32" class="heading">03 · CAP + ROTOR</text>
+<path d="M388 20v405M727 20v405" stroke="#2b4359" stroke-dasharray="4 6"/>
+<rect x="28" y="185" width="81" height="100" rx="10" fill="url(#case)" stroke="#46617b"/>
+<text x="69" y="230" text-anchor="middle">12 V</text><text x="69" y="254" text-anchor="middle" class="small">BATTERY</text>
+<text x="68" y="177">+</text><text x="59" y="306">−</text><path d="M68 285v36" class="wire"/><use href="#ground" x="68" y="321"/>
+<rect x="160" y="126" width="202" height="234" rx="20" fill="url(#case)" stroke="#4b6884" stroke-width="2"/>
+<text x="261" y="151" text-anchor="middle">Ignition coil cutaway</text>
+<g id="field"></g>
+<rect x="188" y="237" width="145" height="34" rx="5" class="metal"/>
+<text x="260" y="259" text-anchor="middle" style="fill:#0d1b29">Iron core</text>
+<text x="260" y="189" text-anchor="middle" class="small">Primary · fewer turns</text>
+<text x="260" y="323" text-anchor="middle" class="small">Secondary · more turns</text>
+<path id="primaryWire" class="wire"/>
+<path id="secondaryWire" class="wire"/>
+<text x="25" y="61" class="small">Ballast resistor</text>
+<text x="25" y="77" class="small">RUN feed</text>
+<path d="M139 214V357" fill="none" stroke="#51dccc" stroke-width="1.5" stroke-dasharray="3 5"/>
+<circle cx="139" cy="214" r="4" fill="#51dccc"/><text x="105" y="201" class="small">Coil +</text>
+<rect x="25" y="357" width="337" height="51" rx="8" fill="#162434" stroke="#46627c"/>
+<text x="38" y="378">Coil + voltage</text>
+<text x="38" y="396" class="small">After ballast · referenced to ground</text>
+<text id="coilVoltage" x="349" y="388" text-anchor="end" style="fill:var(--primary);font-size:24px">12.0 V</text>
+<text x="367" y="202" class="small">−</text><text x="412" y="71" class="small">Coil high-voltage lead to cap centre</text>
+<circle cx="550" cy="249" r="90" fill="url(#cap)" stroke="#446380" stroke-width="2"/>
+<path id="cam" fill="#496983" stroke="#a1bed6" stroke-width="2"/>
+<circle cx="550" cy="249" r="14" class="metal"/><circle cx="550" cy="249" r="5" fill="#15293c"/>
+<path d="M588 316Q556 336 521 321m0 0 9-4m-9 4 5 9" fill="none" stroke="#a1bed6" stroke-width="2" stroke-linejoin="round"/>
+<text x="493" y="353" class="small">Four-lobe cam · clockwise</text>
+<circle id="fixedPoint" cx="641" cy="239" r="5" class="metal"/>
+<g id="arm"><path id="armLink" fill="none" stroke="#b0c6da" stroke-width="7" stroke-linecap="round"/><rect id="rubbingBlock" y="232" width="11" height="34" rx="2" fill="#e0a661"/><circle cx="641" cy="249" r="5" fill="#dfedf8"/></g>
+<circle cx="620" cy="309" r="6" class="metal"/><path d="M620 309v15" class="wire"/><use href="#ground" x="620" y="324"/>
+<path d="M649 209h47v16m-9 0h18m-18 8h18m-9 0v62" class="wire"/><circle cx="649" cy="209" r="4" fill="#abc3d9"/><use href="#ground" x="696" y="295"/>
+<text x="684" y="193" class="small" text-anchor="middle">Condenser</text>
+<text x="635" y="151" class="small" text-anchor="middle">Breaker contacts</text><path d="M636 158l5 73" stroke="#607b94" fill="none"/>
+<text x="564" y="393" class="small" text-anchor="middle">Cam and rotor turn together on one shaft.</text>
+<circle cx="914" cy="245" r="99" fill="url(#cap)" stroke="#537490" stroke-width="5"/><circle cx="914" cy="245" r="81" fill="none" stroke="#334e65" stroke-dasharray="3 5"/>
+<g id="leads"></g>
+<path id="rotor" d="M899 232Q885 245 899 258H938L976 251V239L938 232Z" fill="#a5704f" stroke="#d6a887" stroke-width="2"/>
+<path id="rotorMetal" d="M914 245h63" stroke="#e8b76f" stroke-width="8" stroke-linecap="round"/>
+<circle cx="914" cy="245" r="9" class="metal"/>
+<path d="M844 145l45 60 22 30" fill="none" stroke="#92a9bf" stroke-dasharray="4 4"/><text x="786" y="136" class="small">Centre brush</text>
+<path id="primaryActive" class="current primary"/><path id="condenserActive" class="current primary"/><path id="highActive" class="current high"/><path id="rotorArc" class="spark"/><path id="plugArc" class="spark"/>
+<text x="914" y="443" text-anchor="middle" class="small">Clockwise · Example firing order 1–3–4–2</text>
+<text x="25" y="428" class="small">Ground symbols share the engine/battery return.</text>
+</svg></div>
+<section class="card replay" id="sparkReplay" hidden>
+<h2>Secondary event · slow-motion replay</h2>
+<p class="hint">This replay runs separately while the cam and rotor keep turning at the selected speed.</p>
+<p id="replayStatus"></p>
+<progress id="replayVoltage" max="1" value="0" aria-label="Illustrative secondary voltage level"></progress>
+<p id="replaySpark" class="replay-spark" hidden>Rotor tip ⚡ Cap terminal → Plug wire → Spark plug gap ⚡</p>
+</section>
+<div class="row">
+<section class="card"><h2 id="phaseTitle">Coil charging</h2><div class="readouts"><span id="points"></span><span id="cylinder"></span><span id="angle"></span><span id="secondaryStatus"></span></div><p id="explain"></p><p class="note" id="path"></p></section>
+<section class="card"><h2>One distributor revolution</h2><div class="phases" id="phases"></div><label for="position" class="hint">Scrub through all four cylinders</label><input id="position" type="range" min="0" max="3999" value="150" step="1"><p class="note">One distributor revolution equals two crankshaft revolutions. The main diagram turns at a steady rate. The electrical timing shown is illustrative. On a real distributor, the spark follows points opening as soon as voltage can jump the gaps.</p></section>
+</div>
+<footer>Teaching schematic. The example coil shows the RUN circuit with the windings sharing coil +. The voltage display models a 12 V supply, a 1.5 Ω ballast and a 1.5 Ω coil primary. It shows the RUN feed voltage trend and omits fast switching transients. Contact gaps and timing are illustrative. The fault presets show severe faults, including a single-cylinder miss from one worn lobe. <a href="https://assets.denso-am.eu/production/attachments/Spark-Plug-Manual-English_v2.pdf">DENSO ignition reference</a></footer>
+</main>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const phases = [
+  {title:"Coil charging", short:"1 · Charge", at:0,
+   explanation:"With the points closed, primary current builds a magnetic field around the coil’s iron core. The ballast resistor drops voltage while current flows and limits primary current during dwell.",
+   path:"Battery + → ballast resistor → coil primary → closed points → engine ground → battery −."},
+  {title:"Points open · field collapses", short:"2 · Open", at:58/90,
+   explanation:"The rising cam lobe lifts the rubbing block and opens the points. Watch the rubbing block reach the nose of the lobe as secondary voltage rises. The condenser briefly takes primary current, limiting arcing at the points. As the field collapses, it induces voltage in both windings.",
+   path:"The collapsing field raises secondary voltage across the gaps before either gap conducts."},
+  {title:"Rotor routes the spark", short:"3 · Spark", at:76/90,
+   explanation:"High voltage reaches the cap centre through the carbon brush. The rotor tip is near one terminal, so the discharge crosses that air gap and fires the matching plug.",
+   path:"Coil tower → centre brush → rotor → cap air gap → plug wire → plug gap → engine ground."},
+  {title:"Spark ends · cam rotates on", short:"4 · Move on", at:80/90,
+   explanation:"The spark dies out as coil energy is used up. The rotor keeps moving. When the cam lets the contacts close again, the next dwell period begins.",
+   path:"The cam controls when the coil fires. The rotor determines which cylinder receives the spark."}
+];
+const faults = {
+  pad: {
+    title:"Worn rubbing block · points stay closed",
+    explanation:"The worn rubbing face sits farther from the cam. The lobes miss the block, so the points never open.",
+    path:"Primary current stays on. The coil field does not collapse to trigger a spark."
+  },
+  lobe: {
+    title:"Worn cam lobe · cylinder #1 misses",
+    explanation:"The #1 lobe is too short to lift the rubbing block. The points stay closed through this firing event. The other three lobes still open the points.",
+    path:"Primary current stays on. The coil field does not collapse to trigger a spark."
+  },
+  gap: {
+    title:"Excessive point gap · no spark at cap",
+    explanation:"The points close briefly, so primary current builds for a shorter dwell. When they open, the coil produces a weaker secondary pulse in this example.",
+    path:"Voltage reaches the rotor tip but stays below the rotor-to-cap gap’s breakdown threshold. The plug does not fire."
+  }
+};
+let fault = "normal";
+const order = [1,3,4,2];
+const supplyVolts = 12;
+const ballastOhms = 1.5;
+const primaryOhms = 1.5;
+const maxPrimaryAmps = supplyVolts / (ballastOhms + primaryOhms);
+
+function coilFeedVolts(stage, progress){
+  // Illustrative current ramp during dwell and decay as the points open.
+  const chargedFraction = stage===0 ? (1-Math.exp(-4*progress))/(1-Math.exp(-4)) :
+    stage===1 ? 1-progress : 0;
+  return supplyVolts - ballastOhms*maxPrimaryAmps*chargedFraction;
+}
+const origin = [914,245];
+function polar(degrees,radius) {
+  const rad = degrees * Math.PI / 180;
+  return [origin[0]+Math.cos(rad)*radius,origin[1]+Math.sin(rad)*radius];
+}
+function pointText(point) { return point.join(" "); }
+function winding(count,width,height) {
+  return Array.from({length:count},()=>`q ${width/2} ${-height} ${width} 0`).join(" ");
+}
+const runFeed = "M87 185V147l-8-5 16-8-16-8 16-8-16-8 8-5V88H139V214";
+const primaryStart = runFeed + "H189 " + winding(8,18,19) + " H407V112H649V209";
+$("primaryWire").setAttribute("d",primaryStart+" V239H641");
+const secondaryStart = "M139 214V290H189 " + winding(24,6,15) + " H344V84H805V169H860L914 245";
+$("secondaryWire").setAttribute("d",secondaryStart);
+$("field").innerHTML = [0,1,2].map(i=>`<ellipse class="field" cx="260" cy="253" rx="${75+i*13}" ry="${27+i*9}"/>`).join("");
+const plugs = [[1030,96],[1060,268],[914,355],[769,268]];
+const terminalAngles = [-90,0,90,180];
+const leads = terminalAngles.map((angle,i)=>{
+  const [x,y] = polar(angle,76);
+  const [px,py] = plugs[i];
+  const path = i===0 ? `M${x} ${y}V114H1002V82H${px}V${py}` :
+    i===2 ? `M${x} ${y}V${py}` :
+    `M${x} ${y}H${px}V${py}`;
+  const label = i===2 ? [px-45,py+25] : [px+(i===3?-20:23),py+22];
+  return {x,y,px,py,path,label};
+});
+$("leads").innerHTML = leads.map(({x,y,px,py,path,label},i)=>`
+  <path class="wire" d="${path}"/>
+  <circle id="terminal${i}" cx="${x}" cy="${y}" r="6" fill="#b69464"/>
+  <use href="#plug" x="${px}" y="${py}"/>
+  <text id="plugLabel${i}" x="${label[0]}" y="${label[1]}" text-anchor="middle">${order[i]}</text>`).join("");
+const camCenter = [550,249];
+const armPivot = [620,309];
+function makeCam(worn = false){
+  return Array.from({length:180},(_,i)=>{
+    const angle = i * Math.PI/90;
+    const lobe = Math.max(0,Math.cos(4*angle));
+    // The 90° lobe faces the rubbing block during the #1 firing window.
+    const lobeHeight = worn && i>=34 && i<=56 ? 6 : 14;
+    const radius = 43+lobeHeight*lobe;
+    return [radius*Math.cos(angle),radius*Math.sin(angle)];
+  });
+}
+const normalCam = makeCam();
+const wornCam = makeCam(true);
+let camPoints = normalCam;
+
+const radians = degrees => degrees * Math.PI / 180;
+function camReach(camAngle,armAngle){
+  const camCos = Math.cos(radians(camAngle-armAngle));
+  const camSin = Math.sin(radians(camAngle-armAngle));
+  const pivotCos = Math.cos(radians(armAngle));
+  const pivotSin = Math.sin(radians(armAngle));
+  const origin = armPivot[0] + (camCenter[0]-armPivot[0])*pivotCos
+    + (camCenter[1]-armPivot[1])*pivotSin;
+  return origin + Math.max(...camPoints.map(([x,y])=>x*camCos-y*camSin));
+}
+// At the end of dwell, the rising lobe first reaches the flat rubbing face.
+// Solve in arm-local coordinates so the pad pivots clear of the cam outline.
+const normalRubbingFace = camReach(-16,0)+1;
+let rubbingFace = normalRubbingFace;
+const gapRestAngle = -3;
+const gapCharge = .55;
+let dwellStart = 0;
+let opening = phases[1].at;
+let fixedX = 641;
+let fixedY = 239;
+
+function gapBoundary(lo,hi,openingEdge){
+  for(let i=0;i<20;i++){
+    const mid = (lo+hi)/2;
+    const touching = camReach(mid*90-164,gapRestAngle)+1 <= rubbingFace;
+    if(touching===openingEdge) lo=mid;
+    else hi=mid;
+  }
+  return (lo+hi)/2;
+}
+
+function configureFault(){
+  camPoints = fault==="lobe" ? wornCam : normalCam;
+  rubbingFace = normalRubbingFace+(fault==="pad" ? 6 : 0);
+  $("cam").setAttribute("d","M"+camPoints.map(([x,y])=>[x+camCenter[0],y+camCenter[1]].join(",")).join(" L")+"Z");
+  $("rubbingBlock").setAttribute("x",rubbingFace);
+  $("rubbingBlock").setAttribute("width",fault==="pad" ? 5 : 11);
+  $("armLink").setAttribute("d",`M${normalRubbingFace+9} 249H641L620 309`);
+  const rest = radians(fault==="gap" ? gapRestAngle : 0);
+  fixedX = 620+21*Math.cos(rest)+60*Math.sin(rest);
+  fixedY = 309+21*Math.sin(rest)-60*Math.cos(rest)-10;
+  $("fixedPoint").setAttribute("cx",fixedX);
+  $("fixedPoint").setAttribute("cy",fixedY);
+  $("primaryWire").setAttribute("d",primaryStart+` V${fixedY}H${fixedX}`);
+  dwellStart = fault==="gap" ? gapBoundary(0,.3,false) : 0;
+  opening = fault==="gap" ? gapBoundary(.3,phases[1].at,true) : phases[1].at;
+}
+configureFault();
+
+function breakerLift(camAngle){
+  let lower = fault==="gap" ? gapRestAngle : 0, upper = 20;
+  if(camReach(camAngle,lower)+1<=rubbingFace) return lower;
+  for(let i=0;i<18;i++){
+    const middle = (lower+upper)/2;
+    if(camReach(camAngle,middle)+1>rubbingFace) lower=middle;
+    else upper=middle;
+  }
+  return upper;
+}
+phases.forEach((phase,i)=>{
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = phase.short;
+  button.onclick = () => seek(Math.floor(time)+phasePosition(i)+.02);
+  $("phases").append(button);
+});
+let time = .15, running = false, previous = 0, renderedStage = -1;
+function phasePosition(index){
+  return index===0 ? dwellStart : index===1 ? opening : phases[index]?.at ?? 1;
+}
+function stageAt(t) {
+  return t < opening ? 0 : t < phases[2].at ? 1 : t < phases[3].at ? 2 : 3;
+}
+function seek(value){
+  running = false;
+  time = (value+4)%4;
+  $("play").textContent = "Play";
+  render();
+  syncReplay();
+}
+function render(){
+  const cylinder = Math.floor(time), fraction = time-cylinder;
+  const stage = stageAt(fraction), phase = phases[stage];
+  const start = phasePosition(stage);
+  const progress = Math.max(0,(fraction-start)/(phasePosition(stage+1)-start));
+  const angle = fraction*90;
+  const shaftAngle = cylinder*90 + angle;
+  const rotorAngle = shaftAngle-90-78;
+  const missedLobe = fault==="lobe" && cylinder===0;
+  const faultInfo = fault!=="lobe" || missedLobe ? faults[fault] : undefined;
+  const isSpark = !faultInfo && stage===2;
+  const wideGap = fault==="gap";
+  const isClosed = wideGap ? stage===0 && fraction>=dwellStart : Boolean(faultInfo) || stage===0;
+  const blockedPulse = wideGap && (stage===1 || stage===2);
+  const camAngle = shaftAngle-90-74;
+  const armAngle = breakerLift(camAngle);
+  $("cam").setAttribute("transform",`rotate(${camAngle} 550 249)`);
+  $("arm").setAttribute("transform",`rotate(${armAngle} 620 309)`);
+  for(const id of ["rotor","rotorMetal"]) $(id).setAttribute("transform",`rotate(${rotorAngle} 914 245)`);
+  const normalStrength = stage===0 ? .18+.82*(1-Math.exp(-4*progress)) : stage===1 ? .18+(1-progress)*.78 : stage===2 ? .18*(1-progress) : 0;
+  // Current keeps flowing from the missed #1 opening into #3 dwell.
+  const extendedDwell = fault==="lobe" && ((missedLobe && stage!==0) || (cylinder===1 && stage===0));
+  const steadyState = extendedDwell || fault==="pad";
+  const strength = wideGap ? (isClosed || blockedPulse ? normalStrength*gapCharge : 0) :
+    steadyState ? Number(isClosed) : normalStrength;
+  const voltage = wideGap ? supplyVolts-(supplyVolts-coilFeedVolts(stage,progress))*gapCharge :
+    steadyState ? coilFeedVolts(isClosed ? 0 : 3,1) : coilFeedVolts(stage,progress);
+  $("field").style.opacity = strength;
+  $("coilVoltage").textContent = voltage.toFixed(1)+" V";
+  $("field").setAttribute("transform",`translate(260 253) scale(1 ${.58+.42*strength}) translate(-260 -253)`);
+  $("primaryActive").setAttribute("d",isClosed ? primaryStart+` V${fixedY}H${fixedX}v10L620 309V324` : "");
+  $("condenserActive").setAttribute("d",(!faultInfo || wideGap) && stage===1 && progress<.62 ? primaryStart+" H696V225 M696 233V295" : "");
+  $("condenserActive").style.opacity = 1-progress;
+  const lead=leads[cylinder];
+  const tip=polar(rotorAngle,65);
+  const arcMid=[(tip[0]+lead.x)/2+1,(tip[1]+lead.y)/2-2];
+  const wireToPlug = lead.path + "v46";
+  $("highActive").setAttribute("d",isSpark ? secondaryStart+` L${pointText(tip)} `+wireToPlug : "");
+  $("highActive").style.strokeDasharray = blockedPulse ? "none" : "";
+  if(blockedPulse) $("highActive").setAttribute("d",secondaryStart+` L${pointText(tip)}`);
+  $("rotorArc").setAttribute("d",isSpark ? `M${pointText(tip)}L${pointText(arcMid)}L${lead.x} ${lead.y}` : "");
+  const sparkY = lead.py+46;
+  $("plugArc").setAttribute("d",isSpark ? `M${lead.px} ${sparkY}l3 1 2 -2` : "");
+  for(let i=0;i<order.length;i++){
+    $("terminal"+i).setAttribute("fill",isSpark&&i===cylinder ? "#fff0b8" : "#b69464");
+    $("plugLabel"+i).classList.toggle("hot",isSpark&&i===cylinder);
+  }
+  for(const id of ["primaryActive","condenserActive","highActive"]) $(id).style.strokeDashoffset = -time*162;
+  $("angle").textContent = Math.round(cylinder*90+angle)+"° distributor";
+  $("position").value = Math.min(3999,Math.floor(time*1000));
+  const stateKey = cylinder*8+stage*2+Number(isClosed);
+  if(renderedStage!==stateKey){
+    renderedStage=stateKey;
+    $("phaseTitle").textContent=faultInfo?.title ?? phase.title;
+    $("secondaryStatus").textContent=blockedPulse ? "Voltage at rotor · no arc" : faultInfo ? "No secondary spark" : ["Secondary idle","Secondary voltage rising","Secondary discharging","Spark ended"][stage];
+    $("points").textContent=isClosed?"Points closed":"Points open";
+    $("cylinder").textContent=(faultInfo?"Rotor cycle #":isSpark?"Firing #":stage===3?"Last spark #":"Next spark #")+order[cylinder];
+    $("explain").textContent=faultInfo?.explanation ?? phase.explanation;
+    $("path").textContent=faultInfo?.path ?? phase.path;
+    [...$("phases").children].forEach((button,i)=>button.setAttribute("aria-pressed",String(i===stage)));
+  }
+}
+$("play").onclick=()=>{
+  running=!running;
+  $("play").textContent=running?"Pause":"Play";
+  previous=performance.now();
+};
+$("step").onclick=()=>{
+  const base=Math.floor(time);
+  const next=stageAt(time-base)+1;
+  seek(next<phases.length ? base+phasePosition(next)+.02 : base+1+dwellStart+.02);
+};
+$("reset").onclick=()=>seek(.15);
+$("fault").onchange=e=>{
+  fault = e.target.value;
+  configureFault();
+  renderedStage = -1;
+  render();
+  syncReplay();
+};
+$("position").oninput=e=>seek(Number(e.target.value)/1000);
+const replayDuration = 1550;
+const replayBreakdown = 1000;
+const replaySparkEnd = 1400;
+let replayElapsed = replayDuration;
+let replayCylinder = null;
+
+function showReplay(){
+  const skipped = fault==="lobe" && replayCylinder===1;
+  if(fault==="pad" || skipped){
+    $("replayStatus").textContent = skipped ?
+      "Cylinder #1 · points stayed closed, so there was no spark." : "No secondary event to replay in this fault.";
+    $("replayVoltage").value = 0;
+    $("replaySpark").hidden = true;
+    return;
+  }
+  const rising = replayElapsed < replayBreakdown;
+  const blocked = fault==="gap" && replayElapsed >= replayBreakdown && replayElapsed < replaySparkEnd;
+  const sparking = fault!=="gap" && replayElapsed >= replayBreakdown && replayElapsed < replaySparkEnd;
+  const label = rising ? "Field collapsing · secondary voltage rising" :
+    sparking ? "Gaps conducting · spark firing" : blocked ? "Voltage at rotor · below breakdown" : fault==="gap" ? "Pulse ended without spark" : "Spark ended";
+  $("replayStatus").textContent = replayCylinder===null ?
+    "Waiting for the next points opening." : "Cylinder #"+replayCylinder+" · "+label;
+  $("replayVoltage").value = rising ? replayElapsed/replayBreakdown*(fault==="gap" ? gapCharge : 1) : blocked ? gapCharge :
+    sparking ? .27*(replaySparkEnd-replayElapsed)/(replaySparkEnd-replayBreakdown) : 0;
+  $("replaySpark").hidden = !sparking;
+}
+
+function syncReplay(){
+  const cylinder = Math.floor(time);
+  const fraction = time-cylinder;
+  const stage = stageAt(fraction);
+  replayCylinder = stage===0 ? null : order[cylinder];
+  replayElapsed = stage===1 ?
+    replayBreakdown*(fraction-opening)/(phases[2].at-opening) :
+    stage===2 ? replayBreakdown : replayDuration;
+  showReplay();
+}
+
+$("slowSpark").onchange=()=>{
+  $("sparkReplay").hidden = !$("slowSpark").checked;
+  syncReplay();
+};
+
+function frame(now){
+  if(running){
+    const elapsed = Math.min(now-previous,60);
+    const previousEvent = Math.floor(time-opening);
+    const playbackElapsed = elapsed*2*Number($("speed").value);
+    const nextTime = time+playbackElapsed/3400;
+    const nextEvent = Math.floor(nextTime-opening);
+    time = nextTime%4;
+    render();
+    if($("slowSpark").checked){
+      if(nextEvent!==previousEvent){
+        replayElapsed = 0;
+        replayCylinder = order[nextEvent%4];
+      }else{
+        replayElapsed = Math.min(replayDuration,replayElapsed+playbackElapsed);
+      }
+      showReplay();
+    }
+  }
+  previous=now;
+  requestAnimationFrame(frame);
+}
+render();
+requestAnimationFrame(frame);
+</script>
+</body></html>
