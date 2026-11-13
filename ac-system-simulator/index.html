@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>A/C Refrigerant Simulator</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#10171e;color:#edf3fa;font:16px system-ui,sans-serif}main{max-width:1230px;margin:auto;padding:24px}header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:end;gap:16px;margin-bottom:18px}small{color:#9cc0d6;letter-spacing:.13em;font-weight:700}h1{margin:4px 0;font-size:clamp(26px,4vw,42px)}button,select{font:inherit;color:inherit;background:#253744;border:1px solid #607c90;border-radius:8px;padding:8px 12px}button{cursor:pointer}button[aria-pressed=true]{background:#a3def4;color:#112734;border-color:#a3def4}button:focus-visible,select:focus-visible{outline:3px solid #ffe49d;outline-offset:2px}.tools,.legend,.parts{display:flex;flex-wrap:wrap;gap:10px;align-items:center}.legend{font-size:14px;padding:12px 0;gap:12px 24px}.legend i{display:inline-block;width:20px;height:10px;border-radius:3px;margin-right:7px;border:1px solid #b6bdc2}.board{overflow:auto;background:#151f28;border:1px solid #3b4e5d;border-radius:14px}canvas{width:100%;min-width:760px;display:block}.detail{margin-top:12px;background:#19252f;border-radius:12px;padding:14px 18px}.detail h2{margin:10px 0 4px;font-size:20px}p{margin:4px 0;color:#cbd8e3;line-height:1.5}.status{color:#a8c4d6;font-size:14px}.parts button{font-size:14px}a{color:#a8d9f2}
+.system{margin-bottom:12px}.system>h2{font-size:17px;margin:0 0 5px;color:#cce5f3}.system-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(245px,29%);gap:10px;align-items:stretch}.system .detail{margin-top:0}.system canvas{min-width:600px}.system .parts{gap:5px}.system .parts button{padding:4px 7px;font-size:12px}.system .detail p{font-size:14px}.system .detail h2{font-size:16px}@media(max-width:800px){.system-body{grid-template-columns:1fr}} 
+.gauges{display:flex;gap:10px;margin:0 0 7px;font-variant-numeric:tabular-nums}.gauges span{padding:3px 9px;border:1px solid #516674;border-radius:6px;color:#a5e3ff}.gauges span+span{color:#ffc5c5}.gauges output{font-weight:700;margin-left:4px}</style>
+<main><header><div><small>310S AUTOMOTIVE TRAINING</small><h1>A/C Refrigerant Simulator</h1><p>Compare fixed-orifice and thermostatic expansion valve systems.</p></div><div class="tools"><button id="play" type="button">Pause flow</button><label for="speed">Animation speed</label><select id="speed"><option value=".4">Slow</option><option value="1" selected>Normal</option><option value="2">Fast</option></select></div></header>
+<div class="legend" id="legend"></div>
+<section class="detail" style="margin-bottom:14px" aria-labelledby="machine-title">
+<h2 id="machine-title">R-134a A/C machine</h2>
+<div class="tools"><label for="mode">Mode</label><select id="mode"><option value="run">Normal operation</option><option value="static">Static pressure</option><option value="service">Vacuum and recharge</option></select>
+<label for="fault">Fault</label><select id="fault"><option value="none">None</option><option value="leak">Small leak / slightly low charge</option><option value="plug">Plugged orifice tube / TXV</option></select><label for="ambient">Outside air</label><select id="ambient"><option value="0">70 °F / 21 °C</option><option value="1" selected>80 °F / 27 °C</option><option value="2">90 °F / 32 °C</option><option value="3">100 °F / 38 °C</option></select>
+<span id="service-controls" hidden><label for="step">Procedure step</label> <select id="step"></select> <button type="button" id="next-step">Next step</button></span></div>
+<p id="charge-status"></p><p id="machine-note" aria-live="polite"></p>
+<p class="status">Illustrative gauge readings at sea level. Service steps are time-compressed. Use the vehicle charge specification and machine instructions for actual service. <a href="https://www.robinair.com/sites/default/files/documents/535933_E_0.pdf">Machine reference</a></p>
+</section><div id="systems"></div>
+<template id="system-template"><section class="system"><h2></h2><p class="gauges" data-role="gauges"><span>Low <canvas data-role="low-dial" width="240" height="200" style="width:125px;min-width:0" aria-hidden="true"></canvas><output data-role="low"></output></span><span>High <canvas data-role="high-dial" width="240" height="200" style="width:125px;min-width:0" aria-hidden="true"></canvas><output data-role="high"></output></span></p><div class="system-body"><div class="board"><canvas data-role="diagram" width="1160" height="480" role="img" aria-label="Clickable refrigerant circuit"></canvas></div>
+<div class="detail"><div class="parts" data-role="parts" aria-label="Explore components"></div><div aria-live="polite"><h2 data-role="heading"></h2><p data-role="description"></p></div></div>
+</div></section></template>
+<p class="status">Colors show refrigerant state during operation. Alternating blue or red marks show a liquid–vapour mixture. Component cutaways are simplified. Animation speed is for viewing.</p>
+<p class="status"><a href="https://www.4s.com/media/3793/2017_4s_successful-replacement-trifold_brochure.pdf">Reference diagram from Four Seasons</a></p>
+</main>
+<script>
+'use strict';
+const colours={lpLiquid:'#214db5',lpGas:'#82dbff',hpLiquid:'#a72a3a',hpGas:'#ff9d9d'};
+const legend=document.querySelector('#legend');
+for(const [key,label] of Object.entries({lpLiquid:'Low-pressure liquid',lpGas:'Low-pressure gas',hpLiquid:'High-pressure liquid',hpGas:'High-pressure gas'})){
+ const item=document.createElement('span');
+ const swatch=document.createElement('i');
+ swatch.style.background=colours[key];
+ item.append(swatch,label);
+ legend.append(item);
+}
+function createSystem(txv){
+const root=document.querySelector('#system-template').content.firstElementChild.cloneNode(true);
+root.querySelector('h2').textContent=txv?'Thermostatic expansion valve (TXV)':'Fixed orifice tube';
+document.querySelector('#systems').append(root);
+const part=name=>root.querySelector('[data-role="'+name+'"]');
+const components=[
+ ['Compressor','Squeezes refrigerant vapour, raising its pressure and temperature.',[28,149,146,175]],
+ ['Condenser','Releases heat to the outside air. The refrigerant vapour cools and turns into liquid.',[285,65,345,133]],
+ ['Orifice tube','A small opening limits refrigerant flow. The pressure drops, and some liquid turns into vapour before entering the evaporator.',[745,76,162,78]],
+ ['Evaporator','Refrigerant boils as it takes heat from the cabin air. This cools the air coming out of the vents.',[770,249,350,152]],
+ ['Accumulator / drier','Catches leftover liquid and removes moisture. Vapour returns to the compressor.',[390,316,199,118]]
+];
+if(txv){
+ components[2]=['TXV','Opens or closes to adjust how much refrigerant enters the evaporator. The pressure drops across the valve, turning some liquid into vapour.',[745,76,162,78]];
+ components[4]=['Receiver-drier','Stores and filters liquid refrigerant, removes moisture, and feeds liquid to the TXV.',[635,193,222,80]];
+}
+const canvas=part('diagram'), ctx=canvas.getContext('2d');
+const segments=[];
+function add(points,base,mix){
+ let distance=0;
+ const edges=points.slice(1).map(([x,y],i)=>{
+  const [sx,sy]=points[i],length=Math.hypot(x-sx,y-sy);
+  const edge={sx,sy,x,y,length,start:distance};
+  distance+=length;
+  return edge;
+ });
+ segments.push({points,edges,distance,base,mix});
+}
+add([[105,190],[105,112],[310,112],[603,112]],'hpGas');
+add([[603,112],[603,138],[310,138],[310,163],[603,163]],'hpLiquid','hpGas');
+if(txv){
+ add([[603,163],[660,163],[660,235],[735,235],[735,267],[808,267],[808,235],[868,235],[868,177],[708,177],[708,112],[825,112]],'hpLiquid');
+}else{
+ add([[603,163],[660,163],[660,112],[825,112]],'hpLiquid');
+}
+add([[825,112],[984,112],[984,281],[1090,281],[1090,308],[799,308],[799,334],[1090,334]],'lpLiquid','lpGas');
+add([[1090,334],[1090,361],[799,361],[799,372],[561,372]],'lpGas');
+if(txv){
+ add([[561,372],[381,372],[381,398],[226,398],[226,277],[105,277]],'lpGas');
+}else add([[561,372],[516,372],[516,386],[470,386],[470,405],[438,405],[438,372],[381,372],[381,398],[226,398],[226,277],[105,277]],'lpGas');
+const ports=[
+ {name:'High-side port',text:'Connect a gauge here to read high-side pressure. This port is on the compressor discharge line.',bounds:[183,117,101,49],x:234,y:112,end:147,colour:'hpGas',cap:'H'},
+ {name:'Low-side port',text:'Connect a gauge here to read low-side pressure. This port is on the suction line returning to the compressor.',bounds:[262,338,101,49],x:313,y:398,end:356,colour:'lpGas',cap:'L'}
+];
+components.push(...ports.map(({name,text,bounds})=>[name,text,bounds]));
+const offsets=[];
+let total=0;
+for(const segment of segments){offsets.push(total);total+=segment.distance;}
+function stroke(points,colour,width,dashes=[]){
+ ctx.beginPath();points.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));
+ ctx.strokeStyle=colour;ctx.lineWidth=width;ctx.setLineDash(dashes);ctx.stroke();ctx.setLineDash([]);
+}
+function label(value,x,y,colour='#e8f2fb',size=16){
+ ctx.fillStyle=colour;ctx.font='600 '+size+'px system-ui';ctx.fillText(value,x,y);
+}
+function box(x,y,w,h,fill,border){
+ ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fillStyle=fill;ctx.fill();
+ ctx.strokeStyle=border;ctx.lineWidth=2;ctx.stroke();
+}
+function metal(x,y,w,h,bright='#d6dfe3'){
+ const gradient=ctx.createLinearGradient(x,y,x+w,y+h);
+ gradient.addColorStop(0,bright);
+ gradient.addColorStop(.35,'#758895');
+ gradient.addColorStop(.64,'#384b58');
+ gradient.addColorStop(1,'#9caeb8');
+ return gradient;
+}
+function circle(x,y,r,fill,border){
+ ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);
+ ctx.fillStyle=fill;ctx.fill();
+ ctx.strokeStyle=border;ctx.lineWidth=1.5;ctx.stroke();
+}
+function bolt(x,y){
+ circle(x,y,4,'#aebcc5','#25333d');
+ stroke([[x-2,y+1],[x+2,y-1]],'#45535d',1);
+}
+function core(x,y,w,h){
+ box(x,y,w,h,metal(x,y,w,h),'#748b98');
+ box(x+12,y+6,w-24,h-12,'#19242c','#a4b3bc');
+ for(let row=y+10;row<y+h-7;row+=8){
+  const fins=[];
+  for(let col=x+15;col<x+w-13;col+=3)fins.push([col,row+(fins.length%2)*5]);
+  stroke(fins,'#627784',1);
+ }
+ for(const end of [x+7,x+w-7]){
+  stroke([[end,y+10],[end,y+h-10]],'#c5d0d7',5);
+  bolt(end,y+9);bolt(end,y+h-9);
+ }
+}
+function fittings(x,y){
+ box(x-9,y-9,18,18,metal(x-9,y-9,18,18),'#d0d9de');
+}
+let selected=0,phase=0;
+let circulating=false, clutchEngaged=false, pulleyPhase=0, shaftPhase=0, clutchStatus='Compressor off';
+function render(){
+ ctx.clearRect(0,0,1160,480);ctx.lineJoin='round';ctx.lineCap='round';
+ ctx.fillStyle='#18242d';ctx.fillRect(0,0,1160,480);
+ for(let x=20;x<1160;x+=20)for(let y=20;y<480;y+=20){ctx.fillStyle='#293943';ctx.fillRect(x,y,1.5,1.5);}
+ components.forEach(([, ,bounds],i)=>box(...bounds,'#243541',i===selected?'#a1deff':'#526775'));
+ core(294,100,326,78);
+ core(781,273,326,99);
+ box(39,167,128,125,metal(39,167,128,125),'#afc0cb');
+ for(let y=184;y<281;y+=10){
+  stroke([[43,y],[63,y]],'#364955',4);
+  stroke([[145,y],[162,y]],'#364955',4);
+ }
+ for(const x of [50,155])for(const y of [176,283])bolt(x,y);
+ if(txv){
+  box(682,221,155,51,metal(682,221,155,51),'#b2c2cd');
+  box(692,229,135,42,'#302731','#af8c94');
+  for(let x=750;x<=792;x+=6)for(let y=244;y<=257;y+=5)circle(x,y,1.5,'#d8ba89','#b39269');
+ }else{
+ box(408,353,142,75,metal(408,353,142,75),'#b2c2cd');
+ box(420,362,118,58,'#202f39','#7e919e');
+ box(448,390,70,29,'#554c41','#aa9275');
+ for(let x=454;x<=512;x+=6)for(let y=395;y<=414;y+=5)circle(x,y,1.5,'#d8ba89','#b39269');
+ }
+ box(760,101,132,23,metal(760,101,132,23),'#9aaebc');
+ for(const x of (txv?[105,660,772,880,984,226]:[105,660,772,880,984,561,408,226])){
+  const y={105:183,660:163,772:112,880:112,984:238,561:372,408:372,226:277}[x];
+  fittings(x,y);
+ }
+ for(const segment of segments){
+  stroke(segment.points,'#9aabb5',13);
+  stroke(segment.points,colours[segment.base],9);
+  if(segment.mix)stroke(segment.points,colours[segment.mix],6,[6,9]);
+ }
+ label('Condenser',302,90);label('Heat to outside air ↑',438,90,'#ffc6ad',14);
+ label('Evaporator',786,271);label('Heat from cabin air ↓',946,271,'#b4e6ff',14);
+ label('Compressor',47,309);label(txv?'TXV':'Orifice tube',763,100);label('Pressure drop',757,139,'#cbd8e3',13);
+ if(txv){
+  circle(825,112,9,'#354451','#e8eef2');
+  stroke([[820,106],[825,112],[820,118]],'#f1f6fb',2);
+  stroke([[830,106],[825,112],[830,118]],'#f1f6fb',2);
+ }else{
+  for(let x=790;x<825;x+=5)stroke([[x,107],[x+4,117]],'#e3e9ec',1);
+
+ stroke([[825,103],[825,109]],'#f1f6fb',3);
+ stroke([[825,115],[825,121]],'#f1f6fb',3);
+ }
+ if(txv){
+  label('Receiver-drier',682,212);label('Desiccant',746,246,'#ffe4bc',10);
+ }else{
+  label('Accumulator / drier',406,344);label('Desiccant',484,416,'#ffe4bc',10);
+ }
+ circle(105,234,44,metal(62,191,86,86),'#bdccd6');
+ circle(105,234,38,'#19262f','#4c6371');
+ for(let i=0;i<6;i++){
+  const pulleyAngle=i*Math.PI/3+pulleyPhase;
+  stroke([[105+40*Math.cos(pulleyAngle),234+40*Math.sin(pulleyAngle)],[105+43*Math.cos(pulleyAngle),234+43*Math.sin(pulleyAngle)]],'#e1edf3',2);
+  const angle=i*Math.PI/3+shaftPhase;
+  const dx=Math.cos(angle),dy=Math.sin(angle);
+  stroke([[105+13*dx,234+13*dy],[105+31*dx,234+31*dy]],'#879da9',9);
+  circle(105+30*dx,234+30*dy,4,'#d2dee5','#495e6b');
+ }
+ circle(105,234,12,clutchEngaged?'#9ee7ae':'#738492','#b2c4ce');
+ stroke([[105,234],[105+8*Math.cos(shaftPhase),234+8*Math.sin(shaftPhase)]],'#16242d',3);
+ label(clutchEngaged?'CLUTCH ON':'CLUTCH OFF',55,334,clutchEngaged?'#9ee7ae':'#a8c4d6',12);
+ label(clutchStatus,45,353,'#cbd8e3',11);
+ label('Discharge line',141,99,'#ffc5c5',13);
+ label('Liquid line',637,186,'#ffb3b9',13);
+ label('Suction line',235,422,'#a5e3ff',13);
+ label('Cold liquid + vapour',945,199,'#a5e3ff',13);
+ for(const {name,bounds,x,y,end,colour,cap} of ports){
+  stroke([[x,y],[x,end]],'#9aabb5',10);
+  stroke([[x,y],[x,end]],colours[colour],6);
+  box(x-9,end-6,18,13,metal(x-9,end-6,18,13),'#d0d9de');
+  label(cap,x-4,end+4,'#111c24',11);
+  label(name,bounds[0]+7,cap==='H'?162:351,colours[colour],12);
+ }
+ if(circulating)for(let p=phase%55;p<total;p+=55){
+  const index=segments.findIndex((s,i)=>p<offsets[i]+s.distance);
+  const s=segments[index],local=p-offsets[index];
+  const e=s.edges.find(edge=>local<edge.start+edge.length);
+  const fraction=(local-e.start)/e.length;
+  ctx.save();ctx.translate(e.sx+(e.x-e.sx)*fraction,e.sy+(e.y-e.sy)*fraction);
+  ctx.rotate(Math.atan2(e.y-e.sy,e.x-e.sx));
+  stroke([[-3,-3],[2,0],[-3,3]],'#fff',2);ctx.restore();
+ }
+}
+const parts=part('parts');
+function selectPart(index){
+ selected=index;
+ part('heading').textContent=components[index][0];
+ part('description').textContent=components[index][1];
+ Array.from(parts.children).forEach((button,i)=>button.setAttribute('aria-pressed',String(i===index)));
+ render();
+}
+components.forEach(([name],i)=>{
+ const button=document.createElement('button');
+ button.type='button';button.textContent=name;button.onclick=()=>selectPart(i);parts.append(button);
+});
+function componentAt(event){
+ const rect=canvas.getBoundingClientRect();
+ const x=(event.clientX-rect.left)*canvas.width/rect.width;
+ const y=(event.clientY-rect.top)*canvas.height/rect.height;
+ return components.findIndex(([, , [left,top,width,height]])=>
+  x>=left&&x<=left+width&&y>=top&&y<=top+height);
+}
+canvas.addEventListener('pointermove',event=>{
+ canvas.style.cursor=componentAt(event)>=0?'pointer':'default';
+});
+canvas.addEventListener('click',event=>{
+ const index=componentAt(event);
+ if(index>=0)selectPart(index);
+});
+selectPart(0);
+return (distance,drive,engaged,flow,status)=>{
+ const changed=clutchEngaged!==engaged||circulating!==flow||clutchStatus!==status;
+ clutchEngaged=engaged;
+ circulating=flow;
+ clutchStatus=status;
+ pulleyPhase=(pulleyPhase+drive/22)%(2*Math.PI);
+ if(clutchEngaged)shaftPhase=(shaftPhase+drive/22)%(2*Math.PI);
+ phase=(phase+(engaged?distance:0))%(55*360*Math.PI);
+ if(changed||drive)render();
+};
+}
+const systems=[createSystem(false),createSystem(true)];
+const gaugeRows=[...document.querySelectorAll('[data-role="gauges"]')].map(row=>[
+ row.querySelector('[data-role="low"]'),row.querySelector('[data-role="high"]')
+]);
+const mode=document.querySelector('#mode'), ambient=document.querySelector('#ambient');
+const step=document.querySelector('#step'), next=document.querySelector('#next-step');
+const fault=document.querySelector('#fault'),charge=document.querySelector('#charge-status');
+const dials=[...document.querySelectorAll('[data-role="gauges"]')].map(row=>['low','high'].map(side=>row.querySelector('[data-role="'+side+'-dial"]').getContext('2d')));
+let elapsed=0;
+function dial(ctx,value,side){
+ const min=side?0:-15,max=side?500:160,color=side?'#ff9d9d':'#82dbff';
+ const angle=p=>Math.PI*(.75+1.5*(p-min)/(max-min));
+ ctx.clearRect(0,0,240,200);ctx.beginPath();ctx.arc(120,100,94,0,2*Math.PI);ctx.fillStyle='#111a22';ctx.fill();ctx.strokeStyle=color;ctx.lineWidth=5;ctx.stroke();
+ ctx.fillStyle='#edf3fa';ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='14px system-ui';
+ const ticks=side?[0,100,200,300,400,500]:[-15,0,40,80,120,160];
+ for(const p of ticks){
+  const a=angle(p),x=Math.cos(a),y=Math.sin(a);
+  ctx.beginPath();ctx.moveTo(120+78*x,100+78*y);ctx.lineTo(120+87*x,100+87*y);ctx.lineWidth=2;ctx.stroke();
+  ctx.fillText(p,120+62*x,100+62*y);
+ }
+ ctx.fillText('psig',120,151);
+ const a=angle(Math.max(min,Math.min(max,value)));
+ ctx.beginPath();ctx.moveTo(120,100);ctx.lineTo(120+72*Math.cos(a),100+72*Math.sin(a));ctx.lineWidth=4;ctx.stroke();
+ ctx.beginPath();ctx.arc(120,100,6,0,2*Math.PI);ctx.fillStyle=color;ctx.fill();
+}
+const machineNote=document.querySelector('#machine-note');
+const serviceSteps=[
+ ['Connect machine','Engine and A/C off. The connected gauges show static pressure after both sides settle.'],
+ ['Recover refrigerant','The machine transfers refrigerant into its recovery tank. Both gauge readings fall.'],
+ ['Evacuate','The vacuum pump removes air and helps remove moisture. Both sides drop below atmospheric pressure.'],
+ ['Hold vacuum','The machine isolates the system and watches for a loss of vacuum. This example holds steady.'],
+ ['Recharge by weight','The machine adds the specified refrigerant mass with the engine off. Both readings rise.'],
+ ['Verify operation','Start the A/C after charging is complete. The low side falls and the high side rises as the compressor runs.']
+];
+for(const [index,[title]] of serviceSteps.entries()){
+ const option=document.createElement('option');
+ option.value=index;option.textContent=title;step.append(option);
+}
+function refreshMachine(){
+ elapsed=0;
+ document.querySelector('#service-controls').hidden=mode.value!=='service';
+ const index=Number(step.value);
+ next.textContent=index===5?'Restart procedure':'Next step';
+ machineNote.textContent={
+  run:'The compressor pulls the low side down and builds pressure on the high side. Watch the fixed-orifice example cycle and the TXV example hold a steadier low side.',
+  static:'Compressor off. Both sides gradually settle to the same pressure. A warmer system has a higher static pressure. Static pressure alone cannot tell you the charge weight.',
+  service:fault.value==='leak'&&index===3?'Watch the vacuum slowly decay. In service, repair the leak before charging.':fault.value==='plug'&&index===4?'Stalled-charge example. The machine outlet reaches its limit while the scale registers zero transfer. A plugged metering device alone does not always prevent charging.':fault.value==='plug'&&index===5?'Verification blocked because the charge did not transfer.':serviceSteps[index][1]
+ }[mode.value];
+}
+mode.onchange=()=>{if(mode.value==='service')step.value='0';refreshMachine();};
+step.onchange=refreshMachine;
+fault.onchange=refreshMachine;
+next.onclick=()=>{step.value=String((Number(step.value)+1)%serviceSteps.length);refreshMachine();};
+refreshMachine();
+const staticPressure=[71,87,104,124];
+const readings=[[87,87],[87,87]];
+const clutches=[false,false];
+const clutchLabels=['Compressor off','Compressor off'];
+const lastGaugeText=[[],[]];
+function updateGauges(now,dt){
+ elapsed+=dt;
+ const leak=fault.value==='leak',plug=fault.value==='plug',service=mode.value==='service';
+ const temperature=Number(ambient.value), index=Number(step.value);
+ const equal=staticPressure[temperature];
+ const operating=mode.value==='run'||(mode.value==='service'&&index===5&&!plug);
+
+ const starting=leak?18:20;
+ const ounces=service?[starting,starting*Math.max(0,1-elapsed/6000),0,0,plug?0:20*Math.min(1,elapsed/6500),plug?0:20][index]:starting;
+ const stalled=service&&index===4&&plug;
+ const outlet=stalled?Math.round(430*(1-Math.exp(-elapsed/1300))):0;
+ const status='Charge in system: '+Math.floor(ounces/16)+' lb '+(ounces%16).toFixed(1)+' oz / 1 lb 4 oz'+(stalled?' · High dial shows machine outlet: '+outlet+' psig · 0 oz transferred':'');
+ if(charge.textContent!==status)charge.textContent=status;
+ const target=service?[equal,equal*ounces/starting,-14.65,leak?-14.65*Math.exp(-elapsed/210000):-14.65,-14.65+(equal+14.65)*Math.min(1,ounces/8),plug?-14.65:equal][index]:equal;
+ const cycle=(1-Math.cos(now/1600))/2;
+
+ readings.forEach((row,i)=>{
+  const [low,high]=row;
+  if(!operating)clutches[i]=false;
+  else if(clutches[i])clutches[i]=plug?high<395:low>24;
+  else clutches[i]=plug?high<=290:low>=42;
+  const engaged=clutches[i];
+  clutchLabels[i]=!operating?'Compressor off':engaged?'Pumping':plug?'High-side cutout':'Low-side cutout';
+  let targets=operating
+   ?!engaged?[48+temperature*2,126+temperature*21]
+    :[i===0?20+cycle*2:29+temperature+cycle*2,151+temperature*23+cycle*12]
+   :[target,target];
+  if(operating&&leak&&!service)targets=[targets[0]-(engaged?10:3),targets[1]-22];
+  if(operating&&plug)targets=engaged?[-9,425]:[8,265];
+  if(stalled)targets=[target,outlet];
+  row.forEach((value,side)=>{
+   row[side]=value+(targets[side]-value)*(1-Math.exp(-dt/(operating?750:1200)));
+   const pressure=row[side];
+   const text=pressure<0
+    ?(-pressure*2.036).toFixed(1)+' inHg vacuum'
+    :Math.round(pressure)+' psig';
+   if(lastGaugeText[i][side]!==text){gaugeRows[i][side].textContent=text;dial(dials[i][side],pressure,side);lastGaugeText[i][side]=text;}
+  });
+ });
+ return operating;
+}
+let running=!matchMedia('(prefers-reduced-motion: reduce)').matches;
+const play=document.querySelector('#play'),speed=document.querySelector('#speed');
+function refreshPlay(){play.textContent=running?'Pause flow':'Play flow';}
+play.onclick=()=>{running=!running;refreshPlay();};
+refreshPlay();
+let previous;
+function tick(now){
+ const dt=previous===undefined?0:Math.min(now-previous,50);
+ const operating=updateGauges(now,dt);
+ const distance=running&&operating?dt*.09*Number(speed.value):0;
+ systems.forEach((advance,i)=>advance(distance,distance,clutches[i],clutches[i]&&fault.value!=='plug',clutchLabels[i]));
+ previous=now;
+ requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+</script>
+</html>
