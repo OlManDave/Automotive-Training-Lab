@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Blower Motor System Simulator</title>
+<style>
+:root{color-scheme:dark;font:16px system-ui,sans-serif;background:#0e1922;color:#eef7fa}
+*{box-sizing:border-box}body{margin:0}main{max-width:1200px;margin:auto;padding:24px}h1,h2,p{margin:0}h1{font-size:clamp(25px,4vw,37px)}h2{font-size:18px}header p,figcaption,.note{color:#b7cbd5;margin-top:8px;line-height:1.5}.layout{display:grid;grid-template-columns:1fr 1.15fr 1.35fr;gap:12px;margin:18px 0}.panel{background:#162732;border:1px solid #395363;border-radius:12px;padding:16px;text-align:center;min-width:0}.dial{position:relative;margin:14px auto;width:122px;height:122px;border-radius:50%;border:5px solid #6d8490;background:radial-gradient(circle at 38% 28%,#445d69,#192832 76%);box-shadow:0 5px 0 #0b151c}.pointer{position:absolute;inset:0;transform:rotate(-120deg);transition:transform .2s}.pointer::before{content:'';position:absolute;left:calc(50% - 3px);top:10px;width:6px;height:28px;background:#ffcf70;border-radius:3px}.buttons{display:flex;justify-content:center;flex-wrap:wrap;gap:6px}button{font:inherit;color:#edf7fb;background:#243f50;border:1px solid #577485;border-radius:6px;padding:7px 9px;cursor:pointer}button[aria-pressed=true]{color:#18232a;background:#ffcf70;border-color:#ffcf70;font-weight:750}button:focus-visible{outline:2px solid white;outline-offset:3px}.pack{width:100%;max-height:160px}.blower{width:100%;max-height:225px}.schematic{margin:0;text-align:left}.diagram-scroll{overflow:auto}.diagram{display:block;width:100%;min-width:690px;height:auto;margin-top:9px}.wire{fill:none;stroke:#647e8c;stroke-width:4;stroke-linejoin:round;stroke-linecap:round}.live{stroke:#ffd26d}.node{fill:#a9bdc8}.label{font:15px system-ui,sans-serif;fill:#eff7fa;text-anchor:middle}.small{font-size:12px}.flow{fill:#fff4c5;pointer-events:none}.symbol{fill:#162732;stroke:#91a9b6;stroke-width:2}.value{min-height:2.7em;margin-top:4px;color:#ffe19b}#speedStatus{min-height:1.5em}#description{min-height:3em;margin:10px 0 0;color:#eef7fa;line-height:1.45}.legend{color:#ffd26d} @media(max-width:730px){main{padding:12px}.layout{grid-template-columns:1fr}.blower{max-height:250px}}
+.meters{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin:8px 0 0}.meters div{background:#101e27;border-radius:6px;padding:6px 9px}.meters dt{font-size:.78rem;color:#b7cbd5}.meters dd{margin:2px 0 0;font-variant-numeric:tabular-nums;font-weight:700;color:#ffe19b}
+#resistorFault{font:inherit;margin:8px;padding:5px 8px}.wire.fault{stroke:#ff8a7c;stroke-dasharray:4 5}
+</style>
+</head>
+<body>
+<main>
+<header><h1>Blower Motor System Simulator</h1><p>Turn the HVAC dial to trace current through a conventional four-speed blower circuit.</p></header>
+<div class="layout">
+<section class="panel"><h2>HVAC blower dial</h2><div class="dial" aria-hidden="true"><div id="pointer" class="pointer"></div></div>
+<div class="buttons" role="group" aria-label="Blower speed">
+<button type="button" aria-pressed="true">Off</button><button type="button" aria-pressed="false">Low</button><button type="button" aria-pressed="false">Med 1</button><button type="button" aria-pressed="false">Med 2</button><button type="button" aria-pressed="false">High</button>
+</div><p class="note" id="speedStatus">Off selected</p></section>
+<section class="panel"><h2>Blower resistor pack</h2>
+<svg class="pack" viewBox="0 0 300 155" role="img" aria-label="Three resistor coils and their wiring">
+<rect x="21" y="25" width="258" height="94" rx="12" fill="#243946" stroke="#668697" stroke-width="2"/>
+<path d="M0 76H33 M267 76H300 M104 76V134 M194 76V134" class="wire"/>
+<path id="pack1" d="M33 76H39l5 -14 8 28 8 -28 8 28 8 -28 8 28 8 -14H104" class="wire"/>
+<path id="pack2" d="M104 76H120l5 -14 8 28 8 -28 8 28 8 -28 8 28 8 -14H194" class="wire"/>
+<path id="pack3" d="M194 76H205l5 -14 8 28 8 -28 8 28 8 -28 8 28 8 -14H267" class="wire"/>
+<g fill="#9db5c2"><circle cx="104" cy="76" r="5"/><circle cx="194" cy="76" r="5"/></g>
+</svg><p class="value" id="packStatus">No current through the resistor pack</p></section>
+<section class="panel"><h2>Blower motor and wheel</h2>
+<svg class="blower" viewBox="0 0 300 230" role="img" aria-label="Animated squirrel-cage blower wheel">
+<path d="M145 17c-62 0-111 40-111 96 0 57 46 98 107 98 38 0 68-14 88-40h55v-62h-38C240 51 202 17 145 17Z" fill="#263d4b" stroke="#76909f" stroke-width="4"/>
+<circle cx="139" cy="114" r="83" fill="#101e27" stroke="#8da6b2" stroke-width="3"/>
+<g transform="translate(139 114)"><g id="wheel"><circle r="71" fill="#192e3b" stroke="#95b4c3" stroke-width="4"/><g id="blades"></g><circle r="23" fill="#486675" stroke="#b4cad3" stroke-width="3"/><circle r="8" fill="#c5d6dc"/></g></g>
+<path id="air" d="M241 130h31l-8-6m8 6-8 6m-23 14h31l-8-6m8 6-8 6" fill="none" stroke="#a6e4ff" stroke-width="3" stroke-linecap="round" opacity="0"/>
+</svg><p class="value" id="motorStatus">Motor stopped</p>
+<dl class="meters"><div><dt>Motor + to chassis</dt><dd><output id="motorPositive">0.0 V</output></dd></div><div><dt>Motor − to chassis</dt><dd><output id="motorNegative">0.0 V</output></dd></div><div><dt>Across motor (+ to −)</dt><dd><output id="motorVolts">0.0 V</output></dd></div><div><dt>Motor current</dt><dd><output id="motorAmps">0.0 A</output></dd></div></dl></section>
+</div>
+<figure class="panel schematic">
+<h2>Wiring diagram</h2>
+<label for="resistorFault">Resistor fault</label>
+<select id="resistorFault"><option value="0">None</option><option value="1">R1 open</option><option value="2">R2 open</option><option value="3">R3 open</option></select>
+<dl class="meters"><div><dt>System voltage (B+ to ground)</dt><dd><output id="systemVolts">12.4 V</output></dd></div><div><dt>Active resistor pack</dt><dd><output id="activeOhms">Open circuit</output></dd></div><div><dt>Total circuit resistance</dt><dd><output id="totalOhms">Open circuit</output></dd></div><div><dt>Voltage across selected pack path</dt><dd><output id="packVolts">—</output></dd></div></dl>
+<div class="diagram-scroll" tabindex="0" aria-label="Scrollable wiring diagram">
+<svg class="diagram" viewBox="0 0 920 310" role="img" aria-label="Fused positive supply through the speed selector and resistor ladder, then through the blower motor to chassis ground">
+<g transform="translate(920 0) scale(-1 1)">
+<text x="100" y="44" class="label" transform="translate(200 0) scale(-1 1)">Chassis ground</text><text x="260" y="44" class="label" transform="translate(520 0) scale(-1 1)">Blower motor</text>
+<path d="M60 78V98m-16 0h32m-25 7h18m-13 7h8" class="wire"/>
+<rect x="724" y="273" width="52" height="22" rx="4" class="symbol"/><circle cx="260" cy="78" r="24" class="symbol"/><text x="260" y="83" class="label" transform="translate(520 0) scale(-1 1)">M</text>
+<path id="supply" class="wire" d="M60 78H236 M284 78H372"/>
+<path id="res1" class="wire" d="M372 78h10l6 -11 10 22 10 -22 10 22 10 -22 10 22 6 -11h28"/>
+<path id="res2" class="wire" d="M472 78h10l6 -11 10 22 10 -22 10 22 10 -22 10 22 6 -11h28"/>
+<path id="res3" class="wire" d="M572 78h10l6 -11 10 22 10 -22 10 22 10 -22 10 22 6 -11h28"/>
+<text x="420" y="28" class="label" transform="translate(840 0) scale(-1 1)">R1</text><text x="420" y="49" id="ohms1" class="label small" transform="translate(840 0) scale(-1 1)"></text><text x="520" y="28" class="label" transform="translate(1040 0) scale(-1 1)">R2</text><text x="520" y="49" id="ohms2" class="label small" transform="translate(1040 0) scale(-1 1)"></text><text x="620" y="28" class="label" transform="translate(1240 0) scale(-1 1)">R3</text><text x="620" y="49" id="ohms3" class="label small" transform="translate(1240 0) scale(-1 1)"></text>
+<path id="tap4" class="wire" d="M372 78V179"/><path id="tap3" class="wire" d="M472 78V179"/>
+<path id="tap2" class="wire" d="M572 78V179"/><path id="tap1" class="wire" d="M672 78V179"/>
+<g class="node"><circle cx="372" cy="78" r="5"/><circle cx="472" cy="78" r="5"/><circle cx="572" cy="78" r="5"/><circle cx="672" cy="78" r="5"/><circle cx="372" cy="179" r="5"/><circle cx="472" cy="179" r="5"/><circle cx="572" cy="179" r="5"/><circle cx="672" cy="179" r="5"/><circle cx="772" cy="179" r="5"/><circle cx="572" cy="246" r="5"/></g>
+<text x="372" y="163" class="label small" transform="translate(744 0) scale(-1 1)">High</text><text x="472" y="163" class="label small" transform="translate(944 0) scale(-1 1)">Med 2</text><text x="572" y="163" class="label small" transform="translate(1144 0) scale(-1 1)">Med 1</text><text x="672" y="163" class="label small" transform="translate(1344 0) scale(-1 1)">Low</text><text x="772" y="163" class="label small" transform="translate(1544 0) scale(-1 1)">Off</text>
+<path id="selector" class="wire" d="M772 179L572 246"/><path id="feed" class="wire" d="M572 246V284H860"/>
+<text x="706" y="245" class="label" transform="translate(1412 0) scale(-1 1)">Speed switch</text><text x="750" y="264" class="label small" transform="translate(1500 0) scale(-1 1)">Fuse</text><text x="860" y="264" class="label" transform="translate(1720 0) scale(-1 1)">B+</text><circle cx="860" cy="284" r="5" class="node"/>
+<path id="currentPath" fill="none" stroke="none" d="M60 78H372V179L572 246V284H860"/><g id="dots"></g>
+</g>
+</svg>
+</div>
+<figcaption><span class="legend">Gold shows conventional current direction from B+ to ground.</span> This teaching example uses a 12.4 V supply, a power-side speed switch, and a 1.00 Ω effective running motor load. The values are illustrative. The fused supply stays at 12.4 V. The resistor pack drops voltage before the motor, and motor − is connected to chassis ground.</figcaption>
+<p id="description" aria-live="polite">Off opens the supply path. The motor stops because the circuit is incomplete.</p>
+</figure>
+</main>
+<script>
+'use strict';
+const get = id => document.getElementById(id);
+const ns = 'http://www.w3.org/2000/svg';
+const settings = [
+  {name:'Off', resistors:0, tap:772, rate:0, note:'Off opens the supply path. The motor stops because the circuit is incomplete.'},
+  {name:'Low', resistors:3, tap:672, rate:110, note:'Low routes current through R1, R2 and R3. The pack drops the most voltage, leaving the least across the motor.'},
+  {name:'Med 1', resistors:2, tap:572, rate:190, note:'Med 1 routes current through R1 and R2. The motor receives more voltage than on Low.'},
+  {name:'Med 2', resistors:1, tap:472, rate:285, note:'Med 2 uses only R1. With less voltage dropped across the pack, the motor spins faster.'},
+  {name:'High', resistors:0, tap:372, rate:400, note:'High connects the motor to the fused supply, bypassing all three resistors. The motor receives nearly full supply voltage.'}
+];
+const systemVoltage = 12.4;
+const motorLoad = 1.00;
+const resistorOhms = [0.30, 0.45, 0.65];
+resistorOhms.forEach((ohms,i)=>get('ohms'+(i+1)).textContent=ohms.toFixed(2)+' Ω');
+get('systemVolts').textContent=systemVoltage.toFixed(1)+' V';
+get('motorNegative').textContent='0.0 V';
+const buttons = [...document.querySelectorAll('button')];
+const ladder = [get('res1'), get('res2'), get('res3')];
+const pack = [get('pack1'), get('pack2'), get('pack3')];
+function add(tag, attributes, parent){
+  const el = document.createElementNS(ns, tag);
+  for(const [name,value] of Object.entries(attributes)) el.setAttribute(name,value);
+  parent.append(el);
+  return el;
+}
+for(let i=0;i<24;i++){
+  add('path',{d:'M-5 -26Q-22 -45 -12 -64L-5 -67Q-13 -47 4 -29Z',fill:'#8ca9b8',transform:'rotate('+(15*i)+')'},get('blades'));
+}
+const dots = Array.from({length:19},()=>add('circle',{r:3.4,class:'flow'},get('dots')));
+const path = get('currentPath');
+let selection=0, actualRate=0, pathLength=0, distance=0, wheelAngle=0, last=0;
+function select(index){
+  selection=index;
+  const {name,resistors,tap,rate,note}=settings[index];
+  const openResistor=Number(get('resistorFault').value);
+  const blocked=openResistor>0&&openResistor<=resistors;
+  const running=rate>0&&!blocked;
+  actualRate=running?rate:0;
+  const seriesOhms=resistorOhms.slice(0,resistors).reduce((sum,ohms)=>sum+ohms,0);
+  const totalOhms=motorLoad+seriesOhms;
+  const current=running?systemVoltage/totalOhms:0;
+  get('totalOhms').textContent=running?totalOhms.toFixed(2)+' Ω':'Open circuit';
+  const motorVoltage=current*motorLoad;
+  get('motorPositive').textContent=motorVoltage.toFixed(2)+' V';
+  get('motorVolts').textContent=motorVoltage.toFixed(2)+' V';
+  get('motorAmps').textContent=current.toFixed(2)+' A';
+  get('activeOhms').textContent=running?seriesOhms.toFixed(2)+' Ω':'Open circuit';
+  get('packVolts').textContent=running?(current*seriesOhms).toFixed(2)+' V':blocked?systemVoltage.toFixed(2)+' V':'—';
+  buttons.forEach((button,i)=>button.setAttribute('aria-pressed',String(index===i)));
+  get('pointer').style.transform='rotate('+(-120+60*index)+'deg)';
+  get('speedStatus').textContent=name+' selected';
+  get('packStatus').textContent=blocked?'R'+openResistor+' is open in the selected path':resistors?resistors+' resistor'+(resistors===1?'':'s')+' in series':running?'Resistor pack bypassed':'No current through the resistor pack';
+  get('motorStatus').textContent=running?name+' speed':'Motor stopped';
+  get('description').textContent=blocked
+    ? 'R'+openResistor+' opens the selected speed path. Current stops and the full supply voltage appears across the open resistor in this ideal circuit.'
+    : note+(openResistor&&rate>0?' This speed path bypasses the open resistor.':'');
+  get('selector').setAttribute('d','M'+tap+' 179L572 246');
+  for(const id of ['supply','selector','feed']) get(id).classList.toggle('live',running);
+  ladder.forEach((wire,i)=>{
+    const failed=openResistor===i+1;
+    for(const section of [wire,pack[i]]){
+      section.classList.toggle('live',running&&i<resistors);
+      section.classList.toggle('fault',failed);
+    }
+    get('ohms'+(i+1)).textContent=failed?'OPEN':resistorOhms[i].toFixed(2)+' Ω';
+  });
+  for(let i=1;i<=4;i++) get('tap'+i).classList.toggle('live',running&&index===i);
+  const coilPaths=ladder.slice(0,resistors).map(wire=>wire.getAttribute('d').replace(/^M\d+ 78/,'')).join(' ');
+  path.setAttribute('d','M60 112V78H372 '+coilPaths+' V179L572 246V284H860');
+  pathLength=path.getTotalLength();
+  get('air').setAttribute('opacity',running?0.2+0.2*index:0);
+  dots.forEach(dot=>dot.style.visibility=running?'visible':'hidden');
+}
+buttons.forEach((button,i)=>button.onclick=()=>select(i));
+get('resistorFault').onchange=()=>select(selection);
+const reduceMotion=matchMedia('(prefers-reduced-motion: reduce)');
+function animate(now){
+  const delta=Math.min(.05,(now-(last||now))/1000);
+  last=now;
+  const rate=actualRate;
+  if(rate>0){
+    if(!reduceMotion.matches){
+      wheelAngle=(wheelAngle+rate*delta)%360;
+      distance=(distance+(55+20*selection)*delta)%pathLength;
+    }
+    get('wheel').setAttribute('transform','rotate('+wheelAngle+')');
+    dots.forEach((dot,i)=>{
+      const point=path.getPointAtLength(pathLength-(distance+i*pathLength/dots.length)%pathLength);
+      dot.setAttribute('cx',point.x);
+      dot.setAttribute('cy',point.y);
+    });
+  }
+  requestAnimationFrame(animate);
+}
+select(0);
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>
