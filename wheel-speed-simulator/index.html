@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wheel Speed Simulator</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#091422;color:#eaf2fb;font:16px system-ui,sans-serif}main{max-width:1180px;margin:auto;padding:26px 20px}h1{margin:0;font-size:clamp(25px,4vw,38px)}p{color:#b3c5d9;margin:8px 0 0;line-height:1.45}.controls,section{background:#122134;border:1px solid #2c4058;border-radius:14px;padding:16px;margin-top:15px}.controls{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.speed{display:flex;align-items:center;gap:12px;flex:1;min-width:230px}.speed input{flex:1;min-width:60px;accent-color:#63e6d4}output{min-width:94px;font-weight:700;font-variant-numeric:tabular-nums}button,select{font:inherit;background:#20354e;color:inherit;border:1px solid #546c88;border-radius:7px;padding:6px 9px}button{cursor:pointer}.row{display:grid;grid-template-columns:5fr 6fr;gap:16px}h2{font-size:20px;margin:0}.stats{font-size:14px;font-variant-numeric:tabular-nums}canvas{display:block;width:100%;height:210px;background:#0a1727;border-radius:9px;margin-top:10px}.note{font-size:13px}@media(max-width:680px){.row{grid-template-columns:1fr}}
+</style>
+<main>
+<h1>Wheel Speed Simulator</h1>
+<p>Compare an active Hall-effect sensor with a passive variable-reluctance sensor.</p>
+<div class="controls">
+<label class="speed" for="speed">Vehicle speed <input id="speed" type="range" min="0" max="120" step="1" value="20"></label>
+<output id="speedValue" for="speed"></output>
+<label>Scope window <select id="window"><option value="20">20 ms</option><option value="100" selected>100 ms</option><option value="500">500 ms</option></select></label>
+<button id="stop" type="button">Stop wheel</button>
+<button id="pause" type="button" aria-pressed="false">Freeze view</button>
+</div>
+<p class="note" id="wheelInfo"></p><p class="note">To catch a fault that repeats once per revolution, try 20 km/h with the 500 ms scope window, then freeze the trace.</p>
+<section>
+<h2>Active Hall-effect sensor</h2>
+<p><label>Hall sensor fault <select id="hallFault"><option value="normal">No fault</option><option value="ring">Damaged magnetic encoder</option><option value="corrosion">Corroded wire / connector</option><option value="gap">Excessive air gap</option></select></label>
+<label id="resControl" hidden> Added resistance <input id="resistance" type="range" min="0" max="4000" step="100" value="1500"> <output id="resValue" for="resistance"></output></label></p>
+<p class="note" id="hallHint"></p>
+<p class="stats" id="hallStats"></p>
+<div class="row"><canvas id="hallRing" role="img" aria-label="Spinning magnetic encoder with alternating north and south poles beside a fixed Hall-effect sensor"></canvas><canvas id="hallPlot" role="img" aria-label="Square-wave Hall output versus time"></canvas></div>
+<p>The powered sensor switches between two signal levels as the magnetic poles pass. Increasing wheel speed raises the frequency while the signal levels stay the same.</p>
+</section>
+<section>
+<h2>Passive variable-reluctance sensor</h2>
+<p><label>Passive sensor fault <select id="vrFault"><option value="normal">No fault</option><option value="gap">Excessive air gap</option><option value="missing">Missing teeth on steel ring</option></select></label>
+<label id="teethControl" hidden> Missing teeth <select id="teeth"><option value="1">1</option><option value="2">2 adjacent</option><option value="3">3 adjacent</option></select></label></p>
+<p class="note" id="vrHint"></p>
+<p class="stats" id="vrStats"></p>
+<div class="row"><canvas id="vrRing" role="img" aria-label="Spinning toothed steel tone ring beside a permanent magnet and pickup coil"></canvas><canvas id="vrPlot" role="img" aria-label="Passive sensor AC voltage versus time"></canvas></div>
+<p>Steel teeth and gaps change the magnetic flux through the pickup coil. Faster rotation increases both the frequency and the induced AC voltage. At rest the output is 0 V.</p>
+</section>
+<p class="note">Teaching model with a 2.0 m tire circumference, 24 magnetic pole pairs and 24 steel teeth. The Hall trace represents a 0–5 V switched output. Passive amplitude and fault severity are illustrative. The corrosion example uses a 1 kΩ module load and a 2.5 V switching threshold.</p>
+</main>
+<script>
+'use strict';
+const get = id => document.getElementById(id);
+const count = 24;
+const fullTurn = 2 * Math.PI;
+const colors = { north:'#ff7784', south:'#55b8ff', hall:'#63e6d4', passive:'#ffc978' };
+let angle = 0, lastTime, frozen = false;
+function surface(id) {
+  const canvas = get(id);
+  const {clientWidth:w, clientHeight:h} = canvas;
+  const scale = window.devicePixelRatio || 1;
+  if (canvas.width !== Math.round(w*scale) || canvas.height !== Math.round(h*scale)) {
+    canvas.width = Math.round(w*scale);
+    canvas.height = Math.round(h*scale);
+  }
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(scale,0,0,scale,0,0);
+  ctx.clearRect(0,0,w,h);
+  return {ctx,w,h};
+}
+function line(ctx,x1,y1,x2,y2,color,width=1) {
+  ctx.strokeStyle=color; ctx.lineWidth=width;
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+}
+function label(ctx,value,x,y,color='#b3c5d9',align='left') {
+  ctx.font='12px system-ui'; ctx.fillStyle=color; ctx.textAlign=align;
+  ctx.fillText(value,x,y);
+}
+function ring(id,active,fault,missing) {
+  const {ctx,w}=surface(id);
+  const x=w*.33, y=102, r=Math.min(72,w*.225);
+  ctx.save(); ctx.translate(x,y); ctx.rotate(-angle);
+  ctx.fillStyle='#31455d';
+  ctx.beginPath(); ctx.arc(0,0,r-8,0,fullTurn); ctx.arc(0,0,r*.65,0,fullTurn,true); ctx.fill();
+  for(let i=0;i<(active?count*2:count);i++){
+    const step=fullTurn/(active?count*2:count);
+    if(active){
+      ctx.strokeStyle=fault==='ring' && i>=16 && i<20 ? '#506077' : (i%2?colors.south:colors.north); ctx.lineWidth=14;
+      ctx.beginPath(); ctx.arc(0,0,r-7,i*step+.009,(i+1)*step-.009); ctx.stroke();
+    } else if (fault!=='missing' || i<8 || i>=8+missing) {
+      ctx.save(); ctx.rotate(i*step);
+      ctx.fillStyle='#a5b6ca'; ctx.fillRect(r-10,-4,10,8); ctx.restore();
+    }
+  }
+  ctx.restore();
+  const sensorX=x+r+(fault==='gap'?24:9);
+  ctx.fillStyle='#516785'; ctx.fillRect(sensorX,y-13,Math.min(62,w-sensorX-16),26);
+  ctx.fillStyle=active?colors.hall:colors.north; ctx.fillRect(sensorX+3,y-8,12,16);
+  if(!active){
+    for(let i=0;i<7;i++) line(ctx,sensorX+17+i*3,y-8,sensorX+17+i*3,y+8,colors.passive,2);
+  }
+  label(ctx,active?'Hall IC':'Magnet + coil',Math.min(sensorX,w-86),y-23);
+  if(fault==='gap') label(ctx,'Excessive air gap',w-8,y+38,colors.passive,'right');
+  if(fault==='ring') label(ctx,'Gray sector: weak poles',w-8,194,colors.passive,'right');
+  if(fault==='missing') label(ctx,missing+' missing at marked sector',w-8,194,colors.passive,'right');
+  if(fault==='missing'){
+    ctx.beginPath(); ctx.strokeStyle=colors.passive; ctx.lineWidth=2;
+    ctx.arc(x,y,r+2,(7.65)*fullTurn/count-angle,(7.35+missing)*fullTurn/count-angle);
+    ctx.stroke();
+  }
+  const wireStart=sensorX+Math.min(62,w-sensorX-16);
+  for(let i=0;i<(active?3:2);i++) line(ctx,wireStart,y-6+i*6,w-8,y-6+i*6,i===0?'#ff7784':'#9db6d3',2);
+  if(fault==='corrosion'){
+    ctx.fillStyle=colors.passive;
+    ctx.fillRect(w-21,y-4,8,8);
+    label(ctx,'Corroded signal terminal',w-8,y+38,colors.passive,'right');
+  }
+  label(ctx,active?'Magnetic encoder':'Steel tone ring',x,y+4,'#eaf2fb','center');
+  if(active){
+    label(ctx,'N pole',12,194,colors.north);
+    label(ctx,'S pole',65,194,colors.south);
+  } else label(ctx,'Tooth and gap',12,194);
+}
+function cycleAt(time,frequency){
+  return ((angle*count/fullTurn + time*frequency)%count+count)%count;
+}
+function signal(active,cycle,peak,fault,missing,high){
+  const phase=cycle%1;
+  if(active){
+    const damaged=fault==='ring' && cycle>=8 && cycle<10;
+    const weakPoles=fault==='gap' && (cycle>=7 && cycle<11 || cycle>=18 && cycle<20);
+    return phase<.5 && !damaged && !weakPoles ? high : 0;
+  }
+  if(fault==='missing'){
+    // Spread the loss around tooth centers, where induced voltage crosses zero.
+    const firstMissing=7.5, lastMissing=7.5+missing;
+    if(cycle>=firstMissing && cycle<=lastMissing){
+      const edge=Math.min(cycle-firstMissing,lastMissing-cycle);
+      peak*=1-.95*Math.min(1,edge/.3);
+    }
+  }
+  return peak*Math.sin(fullTurn*phase);
+}
+function scope(id,active,frequency,peak,ms,fault,missing,high){
+  const {ctx,w,h}=surface(id);
+  const left=48,right=w-16,top=34,bottom=h-31;
+  const min=active?-1:-8,max=active?6:8;
+  const y=v=>bottom-(v-min)/(max-min)*(bottom-top);
+  const x=t=>left+t*(right-left);
+  const color=active?colors.hall:colors.passive;
+  label(ctx,active?'Signal voltage':'Induced AC voltage',left,21,color);
+  for(const v of (active?[0,2.5,5]:[-8,-4,0,4,8])){
+    line(ctx,left,y(v),right,y(v),v===0?'#7088a4':'#263a50');
+    label(ctx,v+' V',left-7,y(v)+4,undefined,'right');
+  }
+  if(fault==='corrosion'){
+    ctx.save(); ctx.setLineDash([4,4]);
+    line(ctx,left,y(2.5),right,y(2.5),'#ff7784');
+    ctx.restore();
+    label(ctx,'Module threshold',right,y(2.5)-6,'#ff9ca5','right');
+  }
+  for(let i=0;i<=4;i++){
+    line(ctx,x(i/4),top,x(i/4),bottom,'#263a50');
+    label(ctx,(ms*i/4-ms)+(i===4?' ms':''),x(i/4),bottom+17,undefined,i===4?'right':'center');
+  }
+  ctx.strokeStyle=color; ctx.lineWidth=2; ctx.beginPath();
+  const samples=Math.max(600,Math.ceil(w*2));
+  let previous;
+  for(let i=0;i<=samples;i++){
+    const t=i/samples, cycle=cycleAt((t-1)*ms/1000,frequency);
+    const v=signal(active,cycle,peak,fault,missing,high);
+    if(i===0) ctx.moveTo(x(t),y(v));
+    else {
+      if(active) ctx.lineTo(x(t),y(previous));
+      ctx.lineTo(x(t),y(v));
+    }
+    previous=v;
+  }
+  ctx.stroke();
+}
+function metrics(speed){
+  const rps=speed/3.6/2;
+  return {rps, frequency:rps*count, peak:speed*.06};
+}
+function draw(dt){
+  const speed=Number(get('speed').value);
+  const {rps,frequency,peak}=metrics(speed);
+  const ms=Number(get('window').value);
+  if(!frozen) angle=(angle+dt*rps*fullTurn/30)%fullTurn;
+  get('speedValue').textContent=speed+' km/h';
+  get('wheelInfo').textContent=(rps*60).toFixed(1)+' wheel rpm · Ring animation at 1/30 speed · Scope time in milliseconds';
+  const hallFault=get('hallFault').value, vrFault=get('vrFault').value;
+  const missing=Number(get('teeth').value), resistance=Number(get('resistance').value);
+  const high=hallFault==='corrosion'?5*1000/(1000+resistance):5;
+  const vrPeak=vrFault==='gap'?peak*.16:peak;
+  const hallHints={
+    normal:'',
+    ring:'Two pulses disappear at the same ring position each revolution. Inspect the encoder for a damaged magnetic sector.',
+    corrosion:'This example shows resistance in the signal wire feeding a loaded ABS module input. Increase resistance and watch the high level fall below the example 2.5 V threshold. Compare the signal at the sensor and module under load.',
+    gap:'The wider gap weakens the magnetic field. Marginal poles in this example miss the switching threshold, while detected pulses still reach 5 V. Check sensor seating and air gap against service information.'
+  };
+  const vrHints={
+    normal:'',
+    gap:'The whole AC trace is weaker, especially at low speed. Compare amplitude with a known-good wheel at the same speed and inspect the sensor gap.',
+    missing:'The missing-tooth area distorts the AC trace and leaves a longer interval between normal peaks once per revolution. Inspect the corresponding spot on the ring.'
+  };
+  get('resControl').hidden=hallFault!=='corrosion';
+  get('teethControl').hidden=vrFault!=='missing';
+  get('resValue').textContent=resistance+' Ω';
+  get('hallHint').textContent=hallHints[hallFault];
+  get('vrHint').textContent=vrHints[vrFault];
+  const nominal=frequency.toFixed(1)+' Hz nominal';
+  const hallAtRest=signal(true,cycleAt(0,0),0,hallFault,missing,high);
+  const moduleStatus=hallFault==='corrosion' && high<2.5?' · Below module threshold':'';
+  get('hallStats').textContent=nominal+' · '+(speed?'0–'+high.toFixed(2)+' V output':hallAtRest.toFixed(2)+' V steady')+moduleStatus;
+  get('vrStats').textContent=nominal+' · '+vrPeak.toFixed(2)+' V peak outside defects · '+(2*vrPeak).toFixed(2)+' V peak-to-peak';
+  ring('hallRing',true,hallFault,missing); ring('vrRing',false,vrFault,missing);
+  scope('hallPlot',true,frequency,peak,ms,hallFault,missing,high);
+  scope('vrPlot',false,frequency,vrPeak,ms,vrFault,missing,high);
+}
+function frame(time){
+  const dt=lastTime===undefined?0:Math.min((time-lastTime)/1000,.05);
+  lastTime=time; draw(dt); requestAnimationFrame(frame);
+}
+get('stop').onclick=()=>{get('speed').value=0;};
+get('pause').onclick=()=>{
+  frozen=!frozen;
+  get('pause').textContent=frozen?'Resume view':'Freeze view';
+  get('pause').setAttribute('aria-pressed',String(frozen));
+};
+requestAnimationFrame(frame);
+</script>
+</html>
