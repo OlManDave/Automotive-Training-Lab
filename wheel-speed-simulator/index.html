@@ -5,6 +5,16 @@
 <title>Wheel Speed Simulator</title>
 <style>
 *{box-sizing:border-box}body{margin:0;background:#091422;color:#eaf2fb;font:16px system-ui,sans-serif}main{max-width:1180px;margin:auto;padding:26px 20px}h1{margin:0;font-size:clamp(25px,4vw,38px)}p{color:#b3c5d9;margin:8px 0 0;line-height:1.45}.controls,section{background:#122134;border:1px solid #2c4058;border-radius:14px;padding:16px;margin-top:15px}.controls{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.speed{display:flex;align-items:center;gap:12px;flex:1;min-width:230px}.speed input{flex:1;min-width:60px;accent-color:#63e6d4}output{min-width:94px;font-weight:700;font-variant-numeric:tabular-nums}button,select{font:inherit;background:#20354e;color:inherit;border:1px solid #546c88;border-radius:7px;padding:6px 9px}button{cursor:pointer}.row{display:grid;grid-template-columns:5fr 6fr;gap:16px}h2{font-size:20px;margin:0}.stats{font-size:14px;font-variant-numeric:tabular-nums}canvas{display:block;width:100%;height:210px;background:#0a1727;border-radius:9px;margin-top:10px}.note{font-size:13px}@media(max-width:680px){.row{grid-template-columns:1fr}}
+
+.probe-setup{margin-top:12px;padding:12px;background:#0a1727;border:1px solid #2c4058;border-radius:9px}
+.probe-setup h3{margin:0 0 8px;font-size:15px}
+.probe-diagram{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:7px 0;font-size:13px;align-items:center}
+.probe-terminal{text-align:right;padding-right:13px;position:relative}
+.probe-terminal::after{content:"";position:absolute;right:-4px;top:50%;transform:translateY(-50%);width:8px;height:8px;border-radius:50%;background:currentColor;z-index:1}
+.probe-lead{display:flex;gap:6px;align-items:center;min-width:0}
+.probe-lead::before{content:"";width:clamp(12px,4vw,38px);flex-shrink:0;border-top:2px solid currentColor}
+.probe-lead.unused::before{visibility:hidden}
+.probe-positive{color:#ff929d}.probe-reference{color:#cfdef0}
 </style>
 <main>
 <h1>Wheel Speed Simulator</h1>
@@ -23,7 +33,17 @@
 <label id="resControl" hidden> Added resistance <input id="resistance" type="range" min="0" max="4000" step="100" value="1500"> <output id="resValue" for="resistance"></output></label></p>
 <p class="note" id="hallHint"></p>
 <p class="stats" id="hallStats"></p>
-<div class="row"><canvas id="hallRing" role="img" aria-label="Spinning magnetic encoder with alternating north and south poles beside a fixed Hall-effect sensor"></canvas><canvas id="hallPlot" role="img" aria-label="Square-wave Hall output versus time"></canvas></div>
+<div class="row"><canvas id="hallRing" role="img" aria-label="Spinning magnetic encoder with alternating north and south poles beside a fixed Hall-effect sensor"></canvas><div><canvas id="hallPlot" role="img" aria-label="Square-wave Hall output versus time"></canvas>
+<aside class="probe-setup">
+<h3>Scope connections at the ABS module</h3>
+<div class="probe-diagram">
+  <span class="probe-terminal unused">Sensor power</span><span class="probe-lead unused">No scope lead</span>
+  <span class="probe-terminal probe-positive">Signal input</span><span class="probe-lead probe-positive">Red lead (A+)</span>
+  <span class="probe-terminal probe-reference">Sensor ground / return</span><span class="probe-lead probe-reference">Black lead (A−)</span>
+</div>
+<p class="note">Use a breakout lead or backprobe the connected circuit. The scope reads signal voltage relative to sensor return on the module side of the simulated corrosion.</p>
+</aside>
+</div></div>
 <p>The powered sensor switches between two signal levels as the magnetic poles pass. Increasing wheel speed raises the frequency while the signal levels stay the same.</p>
 </section>
 <section>
@@ -32,10 +52,19 @@
 <label id="teethControl" hidden> Missing teeth <select id="teeth"><option value="1">1</option><option value="2">2 adjacent</option><option value="3">3 adjacent</option></select></label></p>
 <p class="note" id="vrHint"></p>
 <p class="stats" id="vrStats"></p>
-<div class="row"><canvas id="vrRing" role="img" aria-label="Spinning toothed steel tone ring beside a permanent magnet and pickup coil"></canvas><canvas id="vrPlot" role="img" aria-label="Passive sensor AC voltage versus time"></canvas></div>
+<div class="row"><canvas id="vrRing" role="img" aria-label="Spinning toothed steel tone ring beside a permanent magnet and pickup coil"></canvas><div><canvas id="vrPlot" role="img" aria-label="Passive sensor AC voltage versus time"></canvas>
+<aside class="probe-setup">
+<h3>Scope connections across the pickup coil</h3>
+<div class="probe-diagram">
+  <span class="probe-terminal probe-positive">Pickup coil terminal 1</span><span class="probe-lead probe-positive">Red lead (A+)</span>
+  <span class="probe-terminal probe-reference">Pickup coil terminal 2</span><span class="probe-lead probe-reference">Black lead (A−)</span>
+</div>
+<p class="note">Measure across both wires with a differential or isolated input rated for the circuit. For a disconnected sensor test, connect to the sensor side of the connector. Using chassis ground as the reference would measure a different voltage.</p>
+</aside>
+</div></div>
 <p>Steel teeth and gaps change the magnetic flux through the pickup coil. Faster rotation increases both the frequency and the induced AC voltage. At rest the output is 0 V.</p>
 </section>
-<p class="note">Teaching model with a 2.0 m tire circumference, 24 magnetic pole pairs and 24 steel teeth. The Hall trace represents a 0–5 V switched output. Passive amplitude and fault severity are illustrative. The corrosion example uses a 1 kΩ module load and a 2.5 V switching threshold.</p>
+<p class="note">Teaching model with a 2.0 m tire circumference, 24 magnetic pole pairs and 24 steel teeth. The Hall trace represents a three-wire sensor with a 0–5 V switched output. On a vehicle, check the wiring diagram and pinout first. Two-wire active sensors use a different test setup. Passive amplitude and fault severity are illustrative. The corrosion example uses a 1 kΩ module load and a 2.5 V switching threshold.</p>
 </main>
 <script>
 'use strict';
