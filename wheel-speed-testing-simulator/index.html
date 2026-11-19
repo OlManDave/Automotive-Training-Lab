@@ -84,6 +84,7 @@ canvas{background:#0b1821;display:block;width:100%;border-radius:7px}
 <label class="probeR">Red probe <select id="red"></select></label>
 <label class="probeB">Black probe (COM) <select id="black"></select></label>
 </div>
+<p id="meterComparison" class="small" hidden></p>
 <p id="meterNote" class="small" aria-live="polite"></p>
 </div>
 </section>
@@ -364,7 +365,7 @@ function drawRing(powered, settings) {
   const x = w * 0.38, y = h * 0.51, radius = Math.min(w * 0.24, h * 0.34);
   ctx.save();
   ctx.translate(x, y);
-  ctx.rotate(rotation);
+  ctx.rotate(-rotation);
   ctx.fillStyle = '#233743';
   ctx.beginPath();
   ctx.arc(0, 0, radius, 0, tau);
@@ -427,7 +428,7 @@ function drawTrace({type, speed, powered, phase, rotation, ms, settings, connect
   ctx.beginPath();
   const samples = Math.max(Math.ceil(width * 2), Math.ceil(hz * ms / 1000 * 30));
   for (let i = 0; i <= samples; i++) {
-    const turns = i / samples * hz * ms / 1000 - rotation * teeth / tau;
+    const turns = (i / samples - 1) * hz * ms / 1000 + rotation * teeth / tau;
     const cycle = (turns % teeth + teeth) % teeth;
     const high = cycle % 1 < 0.5 && !weakSector(cycle, settings.fault);
     let v = 0;
@@ -450,15 +451,27 @@ function frame(now) {
   lastFrame = now;
   rotation = (rotation + speed * dt * 0.09) % tau;
   const settings = faultSettings();
-  const cycle = (-rotation * teeth / tau % teeth + teeth) % teeth;
+  const cycle = rotation * teeth / tau % teeth;
   const phase = cycle % 1 < 0.5 && !weakSector(cycle, settings.fault) ? 5 : hallLow(settings);
-  const result = circuit(kind, speed, el('power').checked, el('connection').value,
-    el('mode').value, Number(el('red').value), Number(el('black').value), phase, settings);
-  lastTrace = {type: kind, speed, powered: result.powered, phase, rotation, ms: Number(el('window').value), settings, connection: el('connection').value};
+  const power = el('power').checked;
+  const connection = el('connection').value;
+  const mode = el('mode').value;
+  const red = Number(el('red').value), black = Number(el('black').value);
+  const result = circuit(kind, speed, power, connection, mode, red, black, phase, settings);
+  const showComparison = settings.fault !== 'normal' && /^[+-]?\d/.test(result.display);
+  el('meterComparison').hidden = !showComparison;
+  let comparison = '';
+  if (showComparison) {
+    const healthyPhase = cycle % 1 < 0.5 ? 5 : 0;
+    const healthy = circuit(kind, speed, power, connection, mode, red, black, healthyPhase, {fault: 'normal'});
+    comparison = 'Known-good reading with this setup: ' + healthy.display +
+      (healthy.display === result.display ? ' · Same displayed reading' : '');
+  }
+  lastTrace = {type: kind, speed, powered: result.powered, phase, rotation, ms: Number(el('window').value), settings, connection};
   const status = drawTrace(frozenTrace ?? lastTrace);
   const scopeStatus = frozenTrace ? 'Paused · ' + status : status;
   for (const [id, value] of [['speedValue', speed + ' km/h · ' + rpm(speed).toFixed(0) + ' rpm'], ['scopeNote', scopeStatus],
-    ['reading', result.display], ['meterNote', result.note]]) {
+    ['reading', result.display], ['meterComparison', comparison], ['meterNote', result.note]]) {
     if (el(id).textContent !== value) el(id).textContent = value;
   }
   drawRing(result.powered, settings);
