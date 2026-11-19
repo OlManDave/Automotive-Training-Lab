@@ -57,6 +57,10 @@ canvas{background:#0b1821;display:block;width:100%;border-radius:7px}
 <h2 id="ringTitle">Magnetic encoder ring</h2>
 <canvas id="ring" role="img" aria-label="Rotating wheel encoder and stationary sensor"></canvas>
 <p id="ringNote" class="small"></p>
+<label>Sensor fault <select id="fault"></select></label>
+<label id="missingControl" hidden> Teeth missing <select id="missingCount"><option>1</option><option>2</option><option>3</option></select></label>
+<label id="resistanceControl" hidden> Added signal resistance <input id="faultResistance" type="range" min="100" max="4000" step="100" value="1500"> <output id="faultOhms" for="faultResistance"></output></label>
+<p id="faultNote" class="small"></p>
 <h2>Guided tests</h2>
 <div id="tests" class="actions"></div>
 <p id="testNote" class="small" aria-live="polite"></p>
@@ -137,7 +141,57 @@ const guided = {
   ]
 };
 
-function circuit(type, speed, power, connection, mode, red, black, phase) {
+const faultOptions = {
+  normal: ['No fault', ''],
+  gap: ['Excessive air gap', 'A wider gap weakens the signal. The passive coil can still pass its resistance test. On active sensors, weak sectors can lose pulses.'],
+  missing: ['Missing teeth on steel ring', 'Look for a weak section once per revolution. The AC meter averages the defect, so the scope is better for locating it.'],
+  ring: ['Damaged magnetic encoder', 'Two pulses are suppressed at the same spot each revolution. Supply voltage can still be normal.'],
+  corrosion: ['Corroded signal wire / connector', 'Added resistance prevents the Hall output from pulling the module’s signal fully low. This example uses a 1 kΩ pull-up at the module.']
+};
+const faultsBySensor = {
+  hall: ['normal', 'ring', 'corrosion', 'gap'],
+  passive: ['normal', 'gap', 'missing'],
+  active: ['normal', 'ring', 'gap']
+};
+
+function faultSettings() {
+  return {
+    fault: el('fault').value,
+    missing: Number(el('missingCount').value),
+    resistance: Number(el('faultResistance').value)
+  };
+}
+
+function updateFaultControls() {
+  const {fault, resistance} = faultSettings();
+  el('missingControl').hidden = fault !== 'missing';
+  el('resistanceControl').hidden = fault !== 'corrosion';
+  el('faultOhms').textContent = resistance + ' Ω';
+  el('faultNote').textContent = faultOptions[fault][1];
+}
+
+function weakSector(cycle, fault) {
+  return fault === 'ring' && cycle >= 8 && cycle < 10 ||
+    fault === 'gap' && (cycle >= 7 && cycle < 11 || cycle >= 18 && cycle < 20);
+}
+
+function hallLow(settings) {
+  return settings.fault === 'corrosion' ? 5 * settings.resistance / (1000 + settings.resistance) : 0;
+}
+
+function pickupGain(cycle, settings) {
+  if (settings.fault === 'gap') return 0.24;
+  if (settings.fault === 'missing' && cycle >= 8 && cycle < 8 + settings.missing) return 0.05;
+  return 1;
+}
+
+function pickupRms(speed, settings) {
+  const missing = settings.fault === 'missing' ? settings.missing : 0;
+  const meanSquareGain = missing ? (teeth - missing + missing * 0.05 ** 2) / teeth : pickupGain(0, settings) ** 2;
+  return passivePeak(speed) * Math.sqrt(meanSquareGain / 2);
+}
+
+function circuit(type, speed, power, connection, mode, red, black, phase, settings) {
   const sensor = sensors[type];
   const moving = speed > 0;
   const passive = type === 'passive';
@@ -145,7 +199,10 @@ function circuit(type, speed, power, connection, mode, red, black, phase) {
   const powered = on && connection === 'connected';
   const shown = (value, unit) => value.toFixed(unit === 'Ω' ? 0 : 2) + ' ' + unit;
   const result = (display, note) => ({display, note, powered});
-  const activeCurrent = moving ? 10.5 : 7;
+  const dropped = settings.fault === 'ring' ? 2 : settings.fault === 'gap' ? 6 : 0;
+  const duty = moving ? (teeth - dropped) / (2 * teeth) : 0;
+  const low = type === 'hall' ? hallLow(settings) : 0.7;
+  const span = (type === 'hall' ? 5 : 1.4) - low;
   if (red < 0 || black < 0) {
     return mode === 'ohms' ? result('O.L', 'Open circuit. Connect both probes.') :
       result('—', 'Connect both probes.');
@@ -173,14 +230,14 @@ function circuit(type, speed, power, connection, mode, red, black, phase) {
   if (red === black) return result(shown(0, 'V'), 'Both leads are on the same point.');
   if (passive) {
     if (connection === 'harness') return result(shown(0, 'V'), 'The pickup coil is disconnected from these harness pins.');
-    return result(shown(mode === 'ac' ? passivePeak(speed) / Math.sqrt(2) : 0, 'V'),
+    return result(shown(mode === 'ac' ? pickupRms(speed, settings) : 0, 'V'),
       mode === 'ac' ? 'AC RMS across the coil. This example is ' + frequency(speed).toFixed(1) + ' Hz. Check your meter’s AC bandwidth at low speed.' : 'The positive and negative half-cycles average to 0 V DC. Use AC voltage.');
   }
   const ref = sensor.pins.length;
   if (connection === 'sensor' && (red === ref || black === ref)) return result('—', 'The unplugged sensor has no connection to module ground.');
   if (connection === 'sensor') return result('—', 'This active sensor is unplugged and has no supply or ground reference.');
   if (mode === 'ac') {
-    const rms = powered && moving && (red === 1 || black === 1) ? (type === 'hall' ? 2.5 : 0.35) : 0;
+    const rms = powered && moving && (red === 1 || black === 1) ? span * Math.sqrt(duty * (1 - duty)) : 0;
     return result(shown(rms, 'V'), rms ?
       'AC RMS of the pulse component only. Use DC voltage for the supply and the scope to verify pulse levels.' :
       'No changing voltage is present across these points. Use DC mode to check the steady voltage.');
@@ -189,10 +246,10 @@ function circuit(type, speed, power, connection, mode, red, black, phase) {
     return result(on && (red === 0 || black === 0) ? shown(red === 0 ? 12 : -12, 'V') : shown(0, 'V'),
       'The module return has no sensor current. Check power and connector position.');
   }
-  const hallSignal = moving ? 2.5 : phase;
+  const hallSignal = moving ? low + span * duty : phase;
   const dc = type === 'hall'
     ? [on ? 5 : 0, powered ? hallSignal : on ? 5 : 0, 0, 0, 0]
-    : [on ? 12 : 0, powered ? activeCurrent / 10 : 0, 0, 0];
+    : [on ? 12 : 0, powered ? low + span * duty : 0, 0, 0];
   return result(shown(dc[red] - dc[black], 'V'),
     !powered ? 'The sensor is unpowered or disconnected. Check the supply and connector.' :
     'DC voltage is measured red minus black. A moving digital signal reads as an average.');
@@ -239,6 +296,8 @@ function update() {
 }
 function choose(type) {
   kind = type;
+  el('fault').replaceChildren(...faultsBySensor[type].map(fault => new Option(faultOptions[fault][0], fault)));
+  updateFaultControls();
   const sensor = sensors[type];
   for (const button of document.querySelectorAll('[data-sensor]')) {
     button.setAttribute('aria-pressed', String(button.dataset.sensor === type));
@@ -265,7 +324,7 @@ function choose(type) {
       configurePins(false);
       el('red').value = red;
       el('black').value = black;
-      el('testNote').textContent = note;
+      el('testNote').textContent = note + ' Expected readings are for a known-good sensor.';
       update();
     });
     return button;
@@ -276,6 +335,9 @@ for (const button of document.querySelectorAll('[data-sensor]')) {
 }
 el('connection').addEventListener('change', () => { configurePins(false); update(); });
 for (const lead of ['red', 'black']) el(lead).addEventListener('change', update);
+for (const id of ['fault', 'missingCount', 'faultResistance']) {
+  el(id).addEventListener('input', updateFaultControls);
+}
 el('stop').addEventListener('click', () => { el('speed').value = 0; });
 el('pauseScope').addEventListener('click', () => {
   if (!lastTrace) return;
@@ -297,7 +359,7 @@ function surface(id) {
   return {ctx, w, h};
 }
 
-function drawRing(powered) {
+function drawRing(powered, settings) {
   const {ctx, w, h} = surface('ring');
   const x = w * 0.38, y = h * 0.51, radius = Math.min(w * 0.24, h * 0.34);
   ctx.save();
@@ -310,9 +372,10 @@ function drawRing(powered) {
   const steel = kind === 'passive';
   const count = steel ? teeth : 2 * teeth;
   for (let i = 0; i < count; i++) {
-    ctx.fillStyle = steel ? '#acbbc4' : i % 2 ? '#56a6de' : '#ec7777';
+    const markedPole = !steel && weakSector(i / 2, settings.fault);
+    ctx.fillStyle = steel ? '#acbbc4' : markedPole ? '#607280' : i % 2 ? '#56a6de' : '#ec7777';
     if (steel) {
-      ctx.fillRect(radius - 3, -radius * 0.068, 11, radius * 0.136);
+      if (pickupGain(i, settings) !== 0.05) ctx.fillRect(radius - 3, -radius * 0.068, 11, radius * 0.136);
     } else {
       ctx.beginPath();
       ctx.arc(0, 0, radius + 4, 0, tau / count - 0.015);
@@ -326,7 +389,7 @@ function drawRing(powered) {
   ctx.beginPath();
   ctx.arc(x, y, radius * 0.31, 0, tau);
   ctx.fill();
-  const tip = x + radius + 15;
+  const tip = x + radius + (settings.fault === 'gap' ? 28 : 15);
   ctx.fillStyle = powered || steel ? '#61e6ca' : '#607280';
   ctx.fillRect(tip, y - 9, 12, 18);
   ctx.fillStyle = '#557183';
@@ -338,7 +401,7 @@ function drawRing(powered) {
   ctx.fillText(steel ? 'Steel teeth' : 'Alternating north / south poles', x, h - 15);
 }
 
-function drawTrace({type, speed, powered, phase, rotation, ms}) {
+function drawTrace({type, speed, powered, phase, rotation, ms, settings, connection}) {
   const {ctx, w, h} = surface('trace');
   const {trace} = sensors[type];
   const limit = Math.max(0.5, Math.ceil(passivePeak(speed) * 2) / 2);
@@ -365,9 +428,15 @@ function drawTrace({type, speed, powered, phase, rotation, ms}) {
   const samples = Math.max(Math.ceil(width * 2), Math.ceil(hz * ms / 1000 * 30));
   for (let i = 0; i <= samples; i++) {
     const turns = i / samples * hz * ms / 1000 - rotation * teeth / tau;
-    const high = Math.sin(turns * tau) >= 0;
-    const v = type === 'passive' ? passivePeak(speed) * Math.sin(turns * tau) :
-      !powered ? 0 : type === 'active' ? speed && high ? 1.4 : 0.7 : speed ? high ? 5 : 0 : phase;
+    const cycle = (turns % teeth + teeth) % teeth;
+    const high = cycle % 1 < 0.5 && !weakSector(cycle, settings.fault);
+    let v = 0;
+    if (type === 'passive' && connection !== 'harness') {
+      v = passivePeak(speed) * pickupGain(cycle, settings) * Math.sin(turns * tau);
+    } else if (powered) {
+      v = type === 'active' ? speed && high ? 1.4 : 0.7 :
+        speed ? high ? 5 : hallLow(settings) : phase;
+    }
     const x = left + width * i / samples;
     if (i === 0) ctx.moveTo(x, y(v)); else ctx.lineTo(x, y(v));
   }
@@ -380,17 +449,19 @@ function frame(now) {
   const dt = Math.min(0.05, (now - (lastFrame ?? now)) / 1000);
   lastFrame = now;
   rotation = (rotation + speed * dt * 0.09) % tau;
-  const phase = Math.sin(-rotation * teeth) >= 0 ? 5 : 0;
+  const settings = faultSettings();
+  const cycle = (-rotation * teeth / tau % teeth + teeth) % teeth;
+  const phase = cycle % 1 < 0.5 && !weakSector(cycle, settings.fault) ? 5 : hallLow(settings);
   const result = circuit(kind, speed, el('power').checked, el('connection').value,
-    el('mode').value, Number(el('red').value), Number(el('black').value), phase);
-  lastTrace = {type: kind, speed, powered: result.powered, phase, rotation, ms: Number(el('window').value)};
+    el('mode').value, Number(el('red').value), Number(el('black').value), phase, settings);
+  lastTrace = {type: kind, speed, powered: result.powered, phase, rotation, ms: Number(el('window').value), settings, connection: el('connection').value};
   const status = drawTrace(frozenTrace ?? lastTrace);
   const scopeStatus = frozenTrace ? 'Paused · ' + status : status;
   for (const [id, value] of [['speedValue', speed + ' km/h · ' + rpm(speed).toFixed(0) + ' rpm'], ['scopeNote', scopeStatus],
     ['reading', result.display], ['meterNote', result.note]]) {
     if (el(id).textContent !== value) el(id).textContent = value;
   }
-  drawRing(result.powered);
+  drawRing(result.powered, settings);
   requestAnimationFrame(frame);
 }
 choose('hall');
