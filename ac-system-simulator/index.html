@@ -17,7 +17,8 @@
 </section><div id="systems"></div>
 <template id="system-template"><section class="system"><h2></h2><p class="gauges" data-role="gauges"><span>Low <canvas data-role="low-dial" width="240" height="200" style="width:125px;min-width:0" aria-hidden="true"></canvas><output data-role="low"></output></span><span>High <canvas data-role="high-dial" width="240" height="200" style="width:125px;min-width:0" aria-hidden="true"></canvas><output data-role="high"></output></span></p><div class="system-body"><div class="board"><canvas data-role="diagram" width="1160" height="480" role="img" aria-label="Clickable refrigerant circuit"></canvas></div>
 <div class="detail"><div class="parts" data-role="parts" aria-label="Explore components"></div><div aria-live="polite"><h2 data-role="heading"></h2><p data-role="description"></p></div></div>
-</div></section></template>
+</div><section data-role="zoom" class="detail" hidden><h2 data-role="zoomTitle"></h2><label data-role="loadControl">Evaporator heat load <select data-role="heat"><option value="low">Lower</option><option value="high">Higher</option></select></label>
+<div style="overflow:auto"><canvas data-role="cut" width="960" height="300" style="max-width:960px;min-width:660px" role="img" aria-label="Enlarged metering device cutaway"></canvas></div><p data-role="zoomText"></p></section></section></template>
 <p class="status">Colors show refrigerant state during operation. Alternating blue or red marks show a liquid–vapour mixture. Component cutaways are simplified. Animation speed is for viewing.</p>
 <p class="status"><a href="https://www.4s.com/media/3793/2017_4s_successful-replacement-trifold_brochure.pdf">Reference diagram from Four Seasons</a></p>
 </main>
@@ -213,8 +214,59 @@ function render(){
  }
 }
 const parts=part('parts');
+const zoom=part('zoom'),heat=part('heat');
+const cut=part('cut').getContext('2d');
+function refreshCut(){
+ zoom.hidden=selected!==2;
+ if(zoom.hidden)return;
+ 
+ part('loadControl').hidden=!txv;
+ part('zoomTitle').textContent=txv?'Inside a thermostatic expansion valve':'Inside a fixed orifice tube';
+ const high=heat.value==='high';
+ part('zoomText').textContent=txv
+ ?(high?'A warmer sensing bulb raises pressure above the diaphragm. The diaphragm pushes the needle farther off its seat, admitting more refrigerant.':'A cooler sensing bulb lowers pressure above the diaphragm. The spring and evaporator pressure move the needle closer to its seat, reducing flow.')+' This example uses an external sensing bulb on the evaporator outlet.'
+ :'The inlet screen catches debris. Liquid then passes through a narrow tube of fixed diameter. Pressure falls and some liquid flashes into vapour at the outlet.';
+ drawCut();
+}
+function drawCut(){
+ const high=heat.value==='high';
+ const rect=(x,y,w,h,c)=>{cut.fillStyle=c;cut.fillRect(x,y,w,h);};
+ function path(points,c,width=3){
+  cut.beginPath();points.forEach(([x,y],i)=>i?cut.lineTo(x,y):cut.moveTo(x,y));cut.strokeStyle=c;cut.lineWidth=width;cut.stroke();
+ }
+ function label(t,x,y){cut.fillStyle='#edf3fa';cut.font='600 16px system-ui';cut.fillText(t,x,y);}
+ cut.clearRect(0,0,960,300);
+ rect(75,155,810,75,'#86989f');rect(75,166,810,53,colours.hpLiquid);
+ const change=txv?470:570;
+ rect(change,166,885-change,53,colours.lpLiquid);
+ for(let x=change+7+(phase%32);x<881;x+=32){
+  cut.fillStyle=colours.lpGas;cut.beginPath();cut.arc(x,195+6*Math.sin(x/18),5,0,Math.PI*2);cut.fill();
+ }
+ for(let x=87+(phase%38);x<312;x+=38)path([[x,185],[x+7,193],[x,201]],'#ffdddd');
+ if(txv){
+  const drop=high?16:2;
+  rect(394,48,150,111,'#7c8e95');rect(407,60,124,88,'#263740');
+  path([[407,91],[435,94],[470,95+drop],[501,94],[531,91]],'#e8c788',6);
+  path([[470,96+drop],[470,188+drop]],'#e4d19c',6);
+  path([[425,157],[425,183],[460,183]],'#bdcbce',9);path([[481,183],[520,183],[520,219]],'#bdcbce',9);
+  cut.beginPath();cut.moveTo(470,179+drop);cut.lineTo(452,199+drop);cut.lineTo(488,199+drop);cut.closePath();cut.fillStyle='#e7bd72';cut.fill();
+  rect(432,223,77,57,'#52616a');
+  path([[470,199+drop],[470,224+drop],[451,230+drop],[487,236+drop],[451,243+drop],[487,250+drop],[470,268]],'#d6dade',3);
+  path([[520,68],[650,68],[650,46],[704,46]],'#dbb67d');
+  rect(704,37,87,18,'#c59a62');
+  label('Sensing bulb',695,26);label('Diaphragm',289,95);label('Needle and seat',535,147);label('Closing spring',524,269);
+ }else{
+  for(let x=218;x<337;x+=12){path([[x,166],[x+26,219]],'#d4dfe2',2);path([[x,219],[x+26,166]],'#d4dfe2',2);}
+  rect(348,165,222,23,'#c6ae75');rect(348,199,222,21,'#c6ae75');
+  label('Inlet screen',226,139);label('Fixed metering bore',367,139);
+ }
+ label('High-pressure liquid  →',74,255);label('→  Low-pressure liquid + vapour',590,255);
+}
+heat.onchange=refreshCut;
+
 function selectPart(index){
  selected=index;
+ refreshCut();
  part('heading').textContent=components[index][0];
  part('description').textContent=components[index][1];
  Array.from(parts.children).forEach((button,i)=>button.setAttribute('aria-pressed',String(i===index)));
@@ -248,6 +300,7 @@ return (distance,drive,engaged,flow,status)=>{
  if(clutchEngaged)shaftPhase=(shaftPhase+drive/22)%(2*Math.PI);
  phase=(phase+(engaged?distance:0))%(55*360*Math.PI);
  if(changed||drive)render();
+ if(!zoom.hidden && flow && distance)drawCut();
 };
 }
 const systems=[createSystem(false),createSystem(true)];
