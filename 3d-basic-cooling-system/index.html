@@ -13,13 +13,14 @@
 <script>
 const canvas=document.getElementById('unity-canvas'),loading=document.getElementById('loading'),error=document.getElementById('error'),fullscreen=document.getElementById('fullscreen');
 const buildUrl='Build';
-const config={dataUrl:buildUrl+'/3d-basic-cooling-system.data',frameworkUrl:buildUrl+'/3d-basic-cooling-system.framework.js',streamingAssetsUrl:'StreamingAssets',companyName:"DefaultCompany",productName:"3D Basic Cooling System",productVersion:"1.0",matchWebGLToCanvasSize:true,devicePixelRatio:Math.min(window.devicePixelRatio||1,1.5)};
+const buildVersion='?v=f3dd1028e692';
+const config={dataUrl:buildUrl+'/3d-basic-cooling-system.data'+buildVersion,frameworkUrl:buildUrl+'/3d-basic-cooling-system.framework.js'+buildVersion,streamingAssetsUrl:'StreamingAssets',companyName:"DefaultCompany",productName:"3D Basic Cooling System",productVersion:"1.0",matchWebGLToCanvasSize:true,devicePixelRatio:Math.min(window.devicePixelRatio||1,1.5)};
 function failed(message){document.getElementById('progress').hidden=true;error.hidden=false;error.textContent='The lesson could not start. Please refresh the page or try a current desktop browser.';console.error(message);}
-const loader=document.createElement('script');loader.src=buildUrl+'/3d-basic-cooling-system.loader.js';
+const loader=document.createElement('script');loader.src=buildUrl+'/3d-basic-cooling-system.loader.js'+buildVersion;
 async function startLesson(){
   // Reassemble the exact Unity runtime from two files to keep each repository upload small.
   const parts=await Promise.all([1,2].map(async part=>{
-    const response=await fetch(buildUrl+'/3d-basic-cooling-system.wasm.part'+part);
+    const response=await fetch(buildUrl+'/3d-basic-cooling-system.wasm.part'+part+buildVersion);
     if(!response.ok)throw new Error('Runtime download failed: '+response.status);
     return response.arrayBuffer();
   }));
